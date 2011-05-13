@@ -24,22 +24,21 @@
  * SUCH DAMAGE.
  */
 /*****************************************************************
- * hdfs_mount.c
+ * iumfs_mount.c
  *
  * mount(1) command for IUMFS filesystem
  *
  ****************************************************************/
 /*
- * gcc hdfs_mount.c -o mount
+ * gcc iumfs_mount.c -o mount
  *
- * hdfs の為の mount コマンド。
- * /usr/lib/fs/hdfs/ ディレクトリを作り、このディレクトリ内に
+ * iumfs の為の mount コマンド。
+ * /usr/lib/fs/iumfs/ ディレクトリを作り、このディレクトリ内に
  * このプログラムを「mount」として配置すれば、/usr/sbin/mount
- * にファイルシステムタイプとして「hdfs」を指定すると、この
+ * にファイルシステムタイプとして「iumfs」を指定すると、この
  * プログラムが呼ばれることになる。
  *
- *   Usage: mount -F hdfs hdfs_base_path mount_point
- *
+ *   Usage: mount -F iumfs protocol://base_path mount_point
  */
 #include <stdio.h>
 #include <stdlib.h>

@@ -52,10 +52,7 @@ distclean:
 	-$(RM) -f $(CONFIGURE_FILES)
 
 test:
-	./test.sh fstest
+	./test.sh
 
 test-all:
 	./test.sh all
-
-test-hdfs:
-	./test.sh hdfs

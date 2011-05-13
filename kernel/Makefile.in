@@ -68,7 +68,7 @@ iumfs_node.o: iumfs_node.c iumfs.h
 iumfs: iumfs_vfsops.o iumfs_vnops.o iumfs_cntl_device.o iumfs_request.o iumfs_node.o
 	$(LD) $(LD_FLAGS) -dn -r $^ -o $@
 
-mount: hdfs_mount.c
+mount: iumfs_mount.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 install:
