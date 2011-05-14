@@ -90,6 +90,8 @@ static int iumfs_remove(vnode_t *, char *, struct cred *);
 static int iumfs_rename(vnode_t *, char *, vnode_t *, char *, struct cred *);
 static int iumfs_mkdir(vnode_t *, char *, vattr_t *, vnode_t **, struct cred *);
 static int iumfs_rmdir(vnode_t *, char *, vnode_t *, struct cred *);
+static int iumfs_space(vnode_t *, int, struct flock64 *, int, offset_t,
+                       struct cred *); //TODO: remove
 #else
 static int iumfs_ioctl(vnode_t *, int, intptr_t, int, struct cred *, int *);
 static int iumfs_setfl(vnode_t *, int, int, struct cred *);
@@ -181,6 +183,8 @@ fs_operation_def_t iumfs_vnode_ops_def_array[] = {
         {&iumfs_mkdir}},
     { VOPNAME_RMDIR,
         {&iumfs_rmdir}},
+    { VOPNAME_SPACE,
+        {&iumfs_space}},    
     { NULL,
         {NULL}},
 };
@@ -207,6 +211,7 @@ fs_operation_def_t iumfs_vnode_ops_def_array[] = {
     { VOPNAME_RENAME, &iumfs_rename},
     { VOPNAME_MKDIR, &iumfs_mkdir},
     { VOPNAME_RMDIR, &iumfs_rmdir},
+    { VOPNAME_SPACE, &iumfs_space},    
     { NULL, NULL},
 };
 #endif // ifdef OPENSOLARIS
@@ -1320,8 +1325,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          */
         pp = pvn_write_kluster(vp, pp, &io_off, &io_len, pp->p_offset,
                 PAGESIZE, flags);
-        DEBUG_PRINT((CE_CONT, "iumfs_putapage: pvn_write_kluster succeeded \
-                    io_off=%d,io_len=%d\n", io_off, io_len));
+        DEBUG_PRINT((CE_CONT, "iumfs_putapage: pvn_write_kluster succeeded io_off=%d,io_len=%d\n", io_off, io_len));
 
         /*
          * デーモンに対して書き込み要求するサイズを調整。
@@ -2094,6 +2098,20 @@ iumfs_rmdir(vnode_t *pdirvp, char *name, vnode_t *cdirvp, struct cred *cr)
     return(err);
 }
 
+/************************************************************************
+ * iumfs_space()  VNODE オペレーション
+ *
+ * TODO: 未実装。ファイルサイズの縮小の為には実装が必須。
+ *************************************************************************/
+static int
+iumfs_space(vnode_t *vp, int cmd, struct flock64 *bfp, int flag,
+        offset_t offset, struct cred *cr)
+{
+    DEBUG_PRINT((CE_CONT, "iumfs_space is called\n"));
+
+    return (ENOTSUP);
+}
+
 #ifndef SOL10
 /*
  *  この ifndef 内の関数は現在は未使用。
@@ -2214,20 +2232,6 @@ iumfs_frlock(vnode_t *vp, int cmd, struct flock64 *bfp, int flag,
         offset_t offset, struct flk_callback *callback, struct cred *cr)
 {
     DEBUG_PRINT((CE_CONT, "iumfs_frlock is called\n"));
-
-    return (ENOTSUP);
-}
-
-/************************************************************************
- * iumfs_space()  VNODE オペレーション
- *
- * サポートしていない
- *************************************************************************/
-static int
-iumfs_space(vnode_t *vp, int cmd, struct flock64 *bfp, int flag,
-        offset_t offset, struct cred *cr)
-{
-    DEBUG_PRINT((CE_CONT, "iumfs_space is called\n"));
 
     return (ENOTSUP);
 }
