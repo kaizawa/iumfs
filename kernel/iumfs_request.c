@@ -412,7 +412,6 @@ iumfs_daemon_request_enter(iumfscntl_soft_t **cntlsoftp)
     if(instance >= MAX_INST){
         instance = 0;
         cmn_err(CE_WARN, "iumfscntl_daemon_request_enter: no instance is opened.");
-        cmn_err(CE_WARN, "iumfscntl_daemon_request_enter: waiting on instance 0.");         
             cntlsoft = &cntlsoft_list[instance];        
             mutex_enter(&cntlsoft->s_lock);
             while (cntlsoft->state & IUMFSCNTL_OPENED) {
