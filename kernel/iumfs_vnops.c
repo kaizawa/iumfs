@@ -139,7 +139,7 @@ static int iumfs_shrlock(vnode_t *, int, struct shrlock *, int);
  * いる
  */
 struct vnodeops *iumfs_vnodeops;
-#ifdef OPENSOLARIS
+#ifdef SOL11
 fs_operation_def_t iumfs_vnode_ops_def_array[] = {
     { VOPNAME_OPEN,
         {&iumfs_open}},
@@ -214,7 +214,7 @@ fs_operation_def_t iumfs_vnode_ops_def_array[] = {
     { VOPNAME_SPACE, &iumfs_space},    
     { NULL, NULL},
 };
-#endif // ifdef OPENSOLARIS
+#endif // ifdef SOL11
 #else
 /*
  * Solaris 9 の場合、vnodeops 構造体はファイルシステムが領域を確保し、直接参照できる

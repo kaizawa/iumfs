@@ -49,7 +49,7 @@
 #include <vm/pvn.h>
 #include <stddef.h>
 // OpenSolaris の場合必要
-#ifdef OPENSOLARIS
+#ifdef SOL11
 #include <sys/vfs_opreg.h>
 #endif
 #include "iumfs.h"
@@ -526,11 +526,11 @@ iumfs_make_directory(vfs_t *vfsp, vnode_t **vpp, vnode_t *parentvp,
          * ディレクトリエントリ中の 「..」 の情報として使う。
          */
         parentvattr.va_mask = AT_ALL;
-#ifdef OPENSOLARIS	
+#ifdef SOL11	
         err = VOP_GETATTR(parentvp, &parentvattr, 0, cr, NULL);
 #else
         err = VOP_GETATTR(parentvp, &parentvattr, 0, cr);
-#endif // ifdef OPENSOLARIS
+#endif // ifdef SOL11
         if (err != SUCCESS) {
             cmn_err(CE_CONT, "iumfs_make_directory: can't get parent directory's attribute\n");
             break;

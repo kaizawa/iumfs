@@ -59,7 +59,7 @@
 #include <vm/pvn.h>
 #include <stddef.h>
 // OpenSolaris の場合必要
-#ifdef OPENSOLARIS
+#ifdef SOL11
 #include <sys/vfs_opreg.h>
 #endif
 #include "iumfs.h"
@@ -97,7 +97,7 @@ static void iumfs_freevfs(vfs_t *);
  * OpenSolaris の場合さらに fs_operation_def_t の func メンバが union に代わっている
  */
 static struct vfsops *iumfs_vfsops;
-#ifdef OPENSOLARIS
+#ifdef SOL11
 fs_operation_def_t iumfs_vfs_ops_def_array[] = {
     { VFSNAME_MOUNT,
         {&iumfs_mount}}, // mount(2) システムコールに対応
@@ -130,7 +130,7 @@ fs_operation_def_t iumfs_vfs_ops_def_array[] = {
     { VFSNAME_FREEVFS, (fs_generic_func_p) & iumfs_freevfs}, // -- 用途不明 --
     { NULL, NULL}
 };
-#endif //ifdef OPENSOLARIS
+#endif //ifdef SOL11
 #else
 /*
  * Solaris 9 の場合、vfsops 構造体はファイルシステムが確保し、直接参照できる。
