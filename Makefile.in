@@ -53,9 +53,11 @@ all:
 
 install:
 	cd kernel ; make install
+	cd iumfs-test ; make install
 
 uninstall:
 	cd kernel ; make uninstall
+	cd iumfs-test ; make uninstall
 
 reinstall: uninstall install
 
