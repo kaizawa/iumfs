@@ -38,7 +38,7 @@
 #ifndef __IUMFS_H
 #define __IUMFS_H
 
-#ifdef OPENSOLARIS
+#ifdef SOL11
 #include <sys/vfs_opreg.h>
 #endif
 #include "iumfs.h"
