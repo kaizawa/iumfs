@@ -1046,6 +1046,7 @@ iumfs_putpage(vnode_t *vp, offset_t off, size_t len, int flags, cred_t *cr)
         /*
          * ページを無効化するのが目的じゃない場合はページをフリーリストから
          * 取得するのを避けるため page_lookup_nowait() を使う。
+         * ページを無効化する場合は排他ロックを取得する。
          */
         if (flags & (B_INVAL | B_FREE)) {
             pp = page_lookup(vp, poff, SE_EXCL);
@@ -1178,16 +1179,19 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
          */
         if (page_exists(vp, off)) {
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: page exits\n"));
-            pp = page_lookup(vp, off, SE_SHARED);
+            /*
+             * rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
+             * そうでない場合は共有ロックをかける。
+             */ 
+            pp = page_lookup(vp, off, rw == S_CREATE ? SE_EXCL : SE_SHARED); 
             if (pp) {
-                // TODO: なぜかここを通らない。おかしい。
                 DEBUG_PRINT((CE_CONT, "iumfs_getapage: page found in cache\n"));
                 plarr[0] = pp;
                 plarr[1] = NULL;
-                break;
+                break; 
             }
             //はじめからやり直し
-            continue;
+            continue; 
         }
 
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: page not found in cache\n"));
