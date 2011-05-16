@@ -485,7 +485,7 @@ write_test()
     printf("\tend: Success\n");
 
     printf("sleeping 5 secs..");
-    sleep(5);
+    sleep(5);    
 
     /*
      * 既存ファイルに追記するテスト
