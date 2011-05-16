@@ -1,11 +1,15 @@
 #pragma D option flowindent
 
-fbt:iumfs::
+fbt::segmap_fault:
+{
+    @[probefunc] = count();
+}
+fbt::segmap_getmapflt:
 {
     @[probefunc] = count();
 }
 
-tick-5sec 
+tick-10sec 
 {
         printa(@[probevunc]);
 }
