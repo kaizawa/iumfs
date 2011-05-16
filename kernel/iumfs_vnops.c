@@ -484,7 +484,7 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
      * 取得してしまう可能性がある。
      * TODO: これではかならず vnode に関連した page が無効化されてしまう。。。
      */
-    err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); 
+//    err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  //TODO 実験
 
     /*
      * ユーザモードデーモンに最新の属性情報を問い合わせる。
@@ -1668,9 +1668,9 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
     } while (uiop->uio_resid > 0);
     
     //TODO: iumnode 構造体の vattr を変えてよいのか? VOP_GETATTR 経由で実際のファイルの mtime を取得すべきでは?
-    inp->vattr.va_mtime = iumfs_get_current_time();
+//    inp->vattr.va_mtime = iumfs_get_current_time(); //TODO: 実験
 out:
-    inp->vattr.va_atime = iumfs_get_current_time();
+//    inp->vattr.va_atime = iumfs_get_current_time(); //TODO: 実験
     mutex_exit(&(inp->i_dlock));
     DEBUG_PRINT((CE_CONT, "iumfs_write: return(%d)\n", err));
     return (err);
