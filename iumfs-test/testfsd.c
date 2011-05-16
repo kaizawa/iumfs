@@ -662,14 +662,14 @@ parse_attributes(iumfs_vattr_t *ivap, struct stat *stat)
     ivap->i_size = stat->st_size;
 
     /*
-     * mtime, atime, ctime ともに現在の時間をセット
-     * (timestruc_t と time_t のマッピングがめんどくさかったので・・・)
+     * mtime, atime, ctime に時間をセット
      */
-    //time(&timenow);
-    //ivap->mtime_sec = ivap->atime_sec = ivap->ctime_sec = timenow;
     ivap->mtime_sec = stat->st_mtime;
+    ivap->mtime_nsec = 0;
     ivap->atime_sec = stat->st_atime;
+    ivap->atime_nsec = 0;
     ivap->ctime_sec = stat->st_ctime;
+    ivap->ctime_nsec = 0;
     return;
 }
 
