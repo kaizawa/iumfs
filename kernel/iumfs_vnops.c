@@ -91,7 +91,7 @@ static int iumfs_rename(vnode_t *, char *, vnode_t *, char *, struct cred *);
 static int iumfs_mkdir(vnode_t *, char *, vattr_t *, vnode_t **, struct cred *);
 static int iumfs_rmdir(vnode_t *, char *, vnode_t *, struct cred *);
 static int iumfs_space(vnode_t *, int, struct flock64 *, int, offset_t,
-                       struct cred *); //TODO: remove
+                       struct cred *); 
 #else
 static int iumfs_ioctl(vnode_t *, int, intptr_t, int, struct cred *, int *);
 static int iumfs_setfl(vnode_t *, int, int, struct cred *);
@@ -482,8 +482,9 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     /*
      * まずは Dirty Page を処理する。そうじゃないと、あやまったファイルサイズを
      * 取得してしまう可能性がある。
+     * TODO: これではかならず vnode に関連した page が無効化されてしまう。。。
      */
-    err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
+    err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); 
 
     /*
      * ユーザモードデーモンに最新の属性情報を問い合わせる。
@@ -542,12 +543,16 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     
     curr_mtime = inp->vattr.va_mtime;
 
+    cmn_err(CE_CONT, "iumfs_getattr: curr_mtime.tv_sec=%d, curr_mtime.tv_nsec=%d\n", curr_mtime.tv_sec,curr_mtime.tv_nsec);
+    cmn_err(CE_CONT, "iumfs_getattr: prev_mtime.tv_sec=%d, prev_mtime.tv_nsec=%d\n", prev_mtime.tv_sec,prev_mtime.tv_nsec);    
+
     /*
      * 更新日が変更されていたら vnode に関連したページを無効化する
      */
     if ((curr_mtime.tv_sec != prev_mtime.tv_sec)
             || (curr_mtime.tv_nsec != prev_mtime.tv_nsec)) {
         DEBUG_PRINT((CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages."));
+        cmn_err(CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages.");//TODO: remove
         // ページを vnode に関連した全ページを無効化する。
         if ((err = iumfs_putpage(vp, 0, 0, B_INVAL, cr))) {
             DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
@@ -1509,9 +1514,10 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * もし 0 とすると uiomove() が呼ばれてページフォルトが発生した段階で初めて
          * iumfs_getpage 呼ばれることになる。
          * リターン値はマップされたカーネルアドレス空間のアドレス。
+         * TODO: どちらにしても uiomove 経由か segmap_getmapfault の中で getpage の冗長呼び出しが発生してしまう > 1,000 回
          */
         DEBUG_PRINT((CE_CONT, "iumfs_write: calling segmap_getmapflt\n"));
-        base = segmap_getmapflt(segkmap, vp, mapoff + reloff, mapsz, 0, S_WRITE);
+        base = segmap_getmapflt(segkmap, vp, mapoff + reloff, mapsz, 0, S_WRITE); 
         if (base == NULL) {
             cmn_err(CE_WARN, "iumfs_write: segmap_getmapflt failed\n");
             err = ENOMEM;
@@ -1537,6 +1543,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             off = uiop->uio_loffset;
             preloff = uiop->uio_loffset & PAGEOFFSET;
             poff = uiop->uio_loffset & PAGEMASK;
+            
             psz = PAGESIZE - preloff;
             psz = MIN(psz, maprest);
             pagecreated = 0;
@@ -1546,6 +1553,15 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             DEBUG_PRINT((CE_CONT, "iumfs_write: maprest=%d\n", maprest));
             DEBUG_PRINT((CE_CONT, "iumfs_write: poff=%d\n", poff));
             DEBUG_PRINT((CE_CONT, "iumfs_write: psz=%d\n", psz));
+
+            //TODO: ここに cmn_err 有効にするかしないかで uiomove の中で呼ばれる getpage の回数が 100 倍位変わる。タイミングか、memory の問題か.
+            //
+            //単に、ここに cmn_err 書くと page が見つからずに request_read が呼ばれるだけだった。
+            //つまり、 page found の時だめ、というのは変わらない模様。
+//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff);
+//            cmn_err(CE_CONT, "iumfs_write: maprest=%d\n", maprest);
+//            cmn_err(CE_CONT, "iumfs_write: poff=%d\n", poff);
+//            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
 
             /*
              * 以下のいずれかの場合新しいページを作成
@@ -1650,7 +1666,8 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         }
         DEBUG_PRINT((CE_CONT, "iumfs_write: segmap_release succeeded \n"));
     } while (uiop->uio_resid > 0);
-
+    
+    //TODO: iumnode 構造体の vattr を変えてよいのか? VOP_GETATTR 経由で実際のファイルの mtime を取得すべきでは?
     inp->vattr.va_mtime = iumfs_get_current_time();
 out:
     inp->vattr.va_atime = iumfs_get_current_time();
