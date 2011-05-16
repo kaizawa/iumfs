@@ -836,7 +836,7 @@ iumfs_dir_is_empty(vnode_t *dirvp)
         //DEBUG_PRINT((CE_CONT,"iumfs_dir_is_empty: found \"%s\" nodeid = %d\n", dentp->d_name, nodeid));
         DEBUG_PRINT((CE_CONT, "iumfs_dir_is_empty: found \"%s\"\n", dentp->d_name));
         break;
-    }
+    }    
     mutex_exit(&(dirinp->i_dlock));
 
     if (found) {
