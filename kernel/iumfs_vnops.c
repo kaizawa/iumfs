@@ -543,9 +543,6 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     
     curr_mtime = inp->vattr.va_mtime;
 
-    cmn_err(CE_CONT, "iumfs_getattr: curr_mtime.tv_sec=%ld, curr_mtime.tv_nsec=%ld\n", curr_mtime.tv_sec,curr_mtime.tv_nsec);
-    cmn_err(CE_CONT, "iumfs_getattr: prev_mtime.tv_sec=%ld, prev_mtime.tv_nsec=%ld\n", prev_mtime.tv_sec,prev_mtime.tv_nsec);    
-
     /*
      * 更新日が変更されていたら vnode に関連したページを無効化する
      * nsec の精度はないので比較しない。
@@ -1184,10 +1181,8 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
          */
         if (page_exists(vp, off)) {
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: page exits\n"));
-            /*
-             * rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
-             * そうでない場合は共有ロックをかける。
-             */ 
+            // rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
+            // そうでない場合は共有ロックをかける。
             pp = page_lookup(vp, off, rw == S_CREATE ? SE_EXCL : SE_SHARED); 
             if (pp) {
                 DEBUG_PRINT((CE_CONT, "iumfs_getapage: page found in cache\n"));
@@ -1198,7 +1193,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             //はじめからやり直し
             continue; 
         }
-
+        
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: page not found in cache\n"));
 
         /*
@@ -1561,7 +1556,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
 //            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff);
 //            cmn_err(CE_CONT, "iumfs_write: maprest=%d\n", maprest);
 //            cmn_err(CE_CONT, "iumfs_write: poff=%d\n", poff);
-//            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
+            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
 
             /*
              * 以下のいずれかの場合新しいページを作成
