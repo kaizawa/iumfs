@@ -551,7 +551,7 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
         // ページを vnode に関連した全ページを無効化する。
         if ((err = iumfs_putpage(vp, 0, 0, B_INVAL, cr))) {
             DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
-            return (err);
+            goto out;
         }
     }
 
