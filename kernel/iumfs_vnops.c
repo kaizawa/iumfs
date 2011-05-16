@@ -482,9 +482,9 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     /*
      * まずは Dirty Page を処理する。そうじゃないと、あやまったファイルサイズを
      * 取得してしまう可能性がある。
-     * TODO: これではかならず vnode に関連した page が無効化されてしまう。。。
+     * 現在は同期 write しかサポートしていないのでここで put を強制しなくていもよい。
+     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  //TODO 実験
      */
-//    err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  //TODO 実験
 
     /*
      * ユーザモードデーモンに最新の属性情報を問い合わせる。
@@ -543,14 +543,14 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     
     curr_mtime = inp->vattr.va_mtime;
 
-    cmn_err(CE_CONT, "iumfs_getattr: curr_mtime.tv_sec=%d, curr_mtime.tv_nsec=%d\n", curr_mtime.tv_sec,curr_mtime.tv_nsec);
-    cmn_err(CE_CONT, "iumfs_getattr: prev_mtime.tv_sec=%d, prev_mtime.tv_nsec=%d\n", prev_mtime.tv_sec,prev_mtime.tv_nsec);    
+    cmn_err(CE_CONT, "iumfs_getattr: curr_mtime.tv_sec=%ld, curr_mtime.tv_nsec=%ld\n", curr_mtime.tv_sec,curr_mtime.tv_nsec);
+    cmn_err(CE_CONT, "iumfs_getattr: prev_mtime.tv_sec=%ld, prev_mtime.tv_nsec=%ld\n", prev_mtime.tv_sec,prev_mtime.tv_nsec);    
 
     /*
      * 更新日が変更されていたら vnode に関連したページを無効化する
+     * nsec の精度はないので比較しない。
      */
-    if ((curr_mtime.tv_sec != prev_mtime.tv_sec)
-            || (curr_mtime.tv_nsec != prev_mtime.tv_nsec)) {
+    if (curr_mtime.tv_sec != prev_mtime.tv_sec){
         DEBUG_PRINT((CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages."));
         cmn_err(CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages.");//TODO: remove
         // ページを vnode に関連した全ページを無効化する。
