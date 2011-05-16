@@ -251,7 +251,7 @@ main() {
     start_testfsd
 
     do_basic_test
-    do_stress_test
+#    do_stress_test
 
     fini $1
 }
