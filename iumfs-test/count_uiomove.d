@@ -16,6 +16,10 @@ fbt::uiomove:entry
     @[probefunc] = count();
 }
 
+fbt::xcopyin_nta:entry /self->traceme/ { @[probefunc] = count(); }
+fbt::do_copy_fault_nta:entry /self->traceme/ { @[probefunc] = count(); }
+fbt::do_copy_fault_nta:entry /self->traceme/ { @[probefunc] = count(); }
+
 fbt::pagefault:entry
 /self->traceme/
 {
