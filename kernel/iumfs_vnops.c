@@ -1184,14 +1184,14 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             // rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
             // そうでない場合は共有ロックをかける。
             pp = page_lookup(vp, off, rw == S_CREATE ? SE_EXCL : SE_SHARED); 
-            if (pp) {
-                DEBUG_PRINT((CE_CONT, "iumfs_getapage: page found in cache\n"));
-                plarr[0] = pp;
-                plarr[1] = NULL;
-                break; 
+            if (pp == NULL) {
+                //はじめからやり直し
+                continue;
             }
-            //はじめからやり直し
-            continue; 
+            DEBUG_PRINT((CE_CONT, "iumfs_getapage: page found in cache\n"));
+            plarr[0] = pp;
+            plarr[1] = NULL;
+            break; 
         }
         
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: page not found in cache\n"));
@@ -1537,6 +1537,11 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         while (maprest > 0) {
             off = uiop->uio_loffset;
             preloff = uiop->uio_loffset & PAGEOFFSET;
+            cmn_err(CE_CONT, "iumfs_write1: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff);
+            cmn_err(CE_CONT, "iumfs_write1: PAGEOFFSET=0x%x\n", PAGEOFFSET);
+            cmn_err(CE_CONT, "iumfs_write1: off=0x%x\n", off);
+            cmn_err(CE_CONT, "iumfs_write1: preloff=%d\n",  preloff);
+            
             poff = uiop->uio_loffset & PAGEMASK;
             
             psz = PAGESIZE - preloff;
@@ -1553,10 +1558,10 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             //
             //単に、ここに cmn_err 書くと page が見つからずに request_read が呼ばれるだけだった。
             //つまり、 page found の時だめ、というのは変わらない模様。
-//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff);
+
 //            cmn_err(CE_CONT, "iumfs_write: maprest=%d\n", maprest);
 //            cmn_err(CE_CONT, "iumfs_write: poff=%d\n", poff);
-            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
+//            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
 
             /*
              * 以下のいずれかの場合新しいページを作成
