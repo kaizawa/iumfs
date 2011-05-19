@@ -484,8 +484,8 @@ write_test()
     }
     printf("\tend: Success\n");
 
-    printf("sleeping 5 secs..");
-    sleep(5);    
+//    printf("sleeping 5 secs..");
+//    sleep(5);    
 
     /*
      * 既存ファイルに追記するテスト
@@ -615,7 +615,7 @@ do_write(const char *path, const uchar_t *data, offset_t off, size_t size)
     struct stat st[1];
 
     //fd = open64(path, O_RDWR|O_CREAT|O_TRUNC);
-    fd = open64(path, O_RDWR|O_TRUNC|O_CREAT);
+    fd = open64(path, O_RDWR|O_CREAT);
     if (fd < 0) {
         printf("\t\tdo_write: open(%s): %s\n", path, strerror(errno));
         ret = errno;
