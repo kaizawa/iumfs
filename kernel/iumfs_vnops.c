@@ -419,7 +419,7 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * iumfs_getpage 呼ばれることになる。
          */
         DEBUG_PRINT((CE_CONT, "iumfs_read: calling segmap_getmapflt\n"));
-        base = segmap_getmapflt(segkmap, vp, mapoff + reloff, mapsz, 1, S_READ);
+        base = segmap_getmapflt(segkmap, vp, mapoff + reloff, mapsz, 0, S_READ);
         if (base == NULL) {
             cmn_err(CE_WARN, "iumfs_read: segmap_getmapflt failed\n");
             err = ENOMEM;
@@ -1538,10 +1538,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         while (maprest > 0) {
             off = uiop->uio_loffset;
             preloff = uiop->uio_loffset & PAGEOFFSET;
-            poff = uiop->uio_loffset & PAGEMASK; //here
-//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%" PRIdMAX ",off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
-//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%lld,off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
-            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff);            
+            poff = uiop->uio_loffset & PAGEMASK; 
             psz = PAGESIZE - preloff;
             psz = MIN(psz, maprest);
             pagecreated = 0;
@@ -1556,10 +1553,12 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             //
             //単に、ここに cmn_err 書くと page が見つからずに request_read が呼ばれるだけだった。
             //つまり、 page found の時だめ、というのは変わらない模様。
-
 //            cmn_err(CE_CONT, "iumfs_write: maprest=%d\n", maprest);
 //            cmn_err(CE_CONT, "iumfs_write: poff=%d\n", poff);
-//            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
+//            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);
+//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%" PRIdMAX ",off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
+//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%lld,off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
+            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%" PRId64 ",preloff=%" PRId64 "\n", uiop->uio_loffset, preloff);                        
 
             /*
              * 以下のいずれかの場合新しいページを作成
@@ -1705,7 +1704,7 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
     iumnode_t *dirinp; // ディレクトリのファイルシステム依存ノード構造体    
 
     DEBUG_PRINT((CE_CONT, "iumfs_create is called\n"));
-    DEBUG_PRINT((CE_CONT, "iumfs_create: name=%s,flag = 0x%x\n", name, flag));
+    DEBUG_PRINT((CE_CONT, "iumfs_create: name=%s, flag=0x%x\n", name, flag));
     vfsp = VNODE2VFS(dirvp);
     dirinp = VNODE2IUMNODE(dirvp);    
 
@@ -1746,6 +1745,7 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
          * 返され、ここには到達しないはず。
          */
         if ((vap->va_mask & AT_SIZE) && (vap->va_size == 0)) {
+            DEBUG_PRINT((CE_CONT, "iumfs_create: AT_SIZE is set. And a_size is 0.\n"));                        
             // ファイルの vnode の属性情報をセット            
             mutex_enter(&(inp->i_dlock));
             inp->vattr.va_size = 0; // inp->fsize と等価
