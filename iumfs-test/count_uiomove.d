@@ -16,7 +16,10 @@ fbt::uiomove:entry
     @[probefunc] = count();
 }
 
-fbt::hat_kpm_page2va:entry /self->traceme/ { @[probefunc] = count(); }
+fbt::xcopyin_nta:entry /self->traceme/ { @[probefunc] = count(); }
+fbt::as_fault:entry /self->traceme/ { @[probefunc] = count(); }
+fbt::trap:entry /self->traceme/ { @[probefunc] = count(); }
+fbt::ksyms_bcopy:entry /self->traceme/ { @[probefunc] = count(); }
 
 fbt::pagefault:entry
 /self->traceme/
