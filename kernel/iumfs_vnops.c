@@ -47,6 +47,7 @@
 #include <sys/ksynch.h>
 #include <sys/pathname.h>
 #include <sys/file.h>
+#include <sys/inttypes.h>
 
 #include <vm/seg.h>
 #include <vm/page.h>
@@ -1537,8 +1538,10 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         while (maprest > 0) {
             off = uiop->uio_loffset;
             preloff = uiop->uio_loffset & PAGEOFFSET;
-            poff = uiop->uio_loffset & PAGEMASK;
-            
+            poff = uiop->uio_loffset & PAGEMASK; //here
+//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%" PRIdMAX ",off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
+//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%lld,off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
+            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff);            
             psz = PAGESIZE - preloff;
             psz = MIN(psz, maprest);
             pagecreated = 0;
@@ -1556,7 +1559,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
 //            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff);
 //            cmn_err(CE_CONT, "iumfs_write: maprest=%d\n", maprest);
 //            cmn_err(CE_CONT, "iumfs_write: poff=%d\n", poff);
-            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
+//            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);            
 
             /*
              * 以下のいずれかの場合新しいページを作成
