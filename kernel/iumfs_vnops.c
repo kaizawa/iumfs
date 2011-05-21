@@ -484,7 +484,8 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
      * まずは Dirty Page を処理する。そうじゃないと、あやまったファイルサイズを
      * 取得してしまう可能性がある。
      * 現在は同期 write しかサポートしていないのでここで put を強制しなくていもよい。
-     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  //TODO 実験
+     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  //TODO 実験 
+     *
      */
 
     /*
@@ -1751,6 +1752,7 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
             inp->vattr.va_size = 0; // inp->fsize と等価
             inp->vattr.va_nblocks = 0;
             inp->vattr.va_atime = iumfs_get_current_time();
+            err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); // page を破棄する。            
             mutex_exit(&(inp->i_dlock));
         }
 
