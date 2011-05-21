@@ -1194,7 +1194,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: page exits\n"));
             // rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
             // そうでない場合は共有ロックをかける。
-            pp = page_lookup(vp, off, rw == S_CREATE ? SE_EXCL : SE_SHARED); 
+            pp = page_lookup(vp, off, (rw == S_CREATE | rw == S_WRITE) ? SE_EXCL : SE_SHARED);
             if (pp == NULL) {
                 //はじめからやり直し
                 continue;
