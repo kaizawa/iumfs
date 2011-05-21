@@ -315,6 +315,7 @@ static int
 iumfs_close(vnode_t *vp, int flag, int count, offset_t offset,
         struct cred *cr)
 {
+    iumnode_t *inp = NULL;        
     int err = 0;
 
     DEBUG_PRINT((CE_CONT, "iumfs_close is called\n"));
@@ -323,7 +324,10 @@ iumfs_close(vnode_t *vp, int flag, int count, offset_t offset,
      * 依頼すること。putpage をサイズ0で呼び出すことで、全ページの
      * dirty page の put と page の破棄が行われる。
      */
+    inp = VNODE2IUMNODE(vp);
+    mutex_enter(&(inp->i_dlock));    
     err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
+    mutex_exit(&(inp->i_dlock));        
     DEBUG_PRINT((CE_CONT, "iumfs_close: return(%d)\n", err));
     return (err);
 }
@@ -616,11 +620,12 @@ iumfs_access(vnode_t *vp, int mode, int ioflag, struct cred *cr)
     /*
      * 既存データがある状態(fize!=0)で TRUNCATE は許可されない
      * ファイルができて最初の書き込みであればいい。
-     */ 
+     */     
     if((inp->fsize != 0) && (mode & VWRITE) && (ioflag & FTRUNC)){
-        DEBUG_PRINT((CE_CONT, "iumfs_access: retuested to truncate file.\n"));
-        err = ENOTSUP;
+        cmn_err(CE_CONT, "iumfs_access: retuested to truncate file.\n");//TODO: 
+//        err = ENOTSUP;
     }
+
 
     DEBUG_PRINT((CE_CONT, "iumfs_access: return(%d)\n", err));
 return (err);
@@ -877,10 +882,14 @@ iumfs_readdir(vnode_t *dirvp, struct uio *uiop, struct cred *cr, int *eofp)
 static int
 iumfs_fsync(vnode_t *vp, int syncflag, struct cred *cr)
 {
+    iumnode_t *inp = NULL;    
     int err = 0;
-
+    
     DEBUG_PRINT((CE_CONT, "iumfs_fsync is called\n"));
+    inp = VNODE2IUMNODE(vp);
+    mutex_enter(&(inp->i_dlock));    
     err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
+    mutex_exit(&(inp->i_dlock));    
     DEBUG_PRINT((CE_CONT, "iumfs_fsync: return(%d)\n", err));
     return (err);
 }
@@ -1728,6 +1737,7 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
              * O_EXCL フラグつきで open された模様. EEXIT エラーを返す.
              */
             err = EEXIST;
+            VN_RELE(vp);            
             goto out;
         }
         
@@ -1746,13 +1756,22 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
          * 返され、ここには到達しないはず。
          */
         if ((vap->va_mask & AT_SIZE) && (vap->va_size == 0)) {
-            DEBUG_PRINT((CE_CONT, "iumfs_create: AT_SIZE is set. And a_size is 0.\n"));                        
-            // ファイルの vnode の属性情報をセット            
+
+            cmn_err(CE_CONT, "iumfs_create: AT_SIZE is set. And a_size is 0.\n");
+            cmn_err(CE_CONT, "iumfs_create: retuested to truncate file.\n");
+            /*            
+            err = ENOTSUP;
+            VN_RELE(vp);
+            goto out;
+            */            
+            // ファイルの vnode の属性情報をセット
+
             mutex_enter(&(inp->i_dlock));
+            err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); // page を破棄する。
             inp->vattr.va_size = 0; // inp->fsize と等価
             inp->vattr.va_nblocks = 0;
             inp->vattr.va_atime = iumfs_get_current_time();
-            err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); // page を破棄する。            
+
             mutex_exit(&(inp->i_dlock));
         }
 
