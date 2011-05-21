@@ -298,7 +298,7 @@ iumfs_open(vnode_t **vpp, int ioflag, struct cred *cr)
      */
     if((err = iumfs_access(vp, VWRITE, ioflag, cr))){
         DEBUG_PRINT((CE_CONT, "iumfs_open: file access denied.\n"));            
-        VN_RELE(vp);
+//        VN_RELE(vp); // Why did i release reference count here??
         goto out;
     }
 
@@ -383,8 +383,8 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          *                        reloff mapsz
          *                             |<---------- rest -------------->|
          *
-         * 一回の segmap_getmapflt でマップ できるのは MAXBSIZE 分だけなので、
-         * uiop->resid 分だけマップするために繰り返し segmap_getmapflt を呼ぶ
+         * 一回の segmap_getmapflt でマップ できるのは1スロット(MAXBSIZE) 分だけ
+         * なので、uiop->resid 分だけマップするために繰り返し segmap_getmapflt を呼ぶ
          * 必要がある。
          */
         mapoff = uiop->uio_loffset & MAXBMASK;
@@ -445,7 +445,7 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         DEBUG_PRINT((CE_CONT, "iumfs_read: copyout %d bytes of data \n", mapsz));
 
         /*
-         * マッピングを解放する。フリーリストに追加される。
+         * マッピングを解放する。MAXBSIZE 毎のスロットはフリーリストに追加される。
          */
         err = segmap_release(segkmap, base, flags);
         if (err != SUCCESS) {
@@ -1461,7 +1461,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
      */
     if((err = iumfs_access(vp, VWRITE, ioflag, cr))){
         DEBUG_PRINT((CE_CONT, "iumfs_write: file access denied.\n"));            
-        VN_RELE(vp);
+//        VN_RELE(vp);  // why did I decrement reference count here?
         goto out;
     }    
 
@@ -1487,7 +1487,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          *                                    |<-->|<--->|
          *                                    reloff mapszx
          *
-         *   一回の segmap_getmapflt でマップ できるのは MAXBSIZE 分だけなので、
+         *   一回の segmap_getmapflt でマップ できるのは1スロット(MAXBSIZE)分だけなので、
          *   uiop->resid 分だけマップするために繰り返し segmap_getmapflt を呼ぶ
          *   必要がある。
          */
@@ -1763,15 +1763,13 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
             err = ENOTSUP;
             VN_RELE(vp);
             goto out;
-            */            
+            */                        
             // ファイルの vnode の属性情報をセット
-
             mutex_enter(&(inp->i_dlock));
             err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); // page を破棄する。
             inp->vattr.va_size = 0; // inp->fsize と等価
             inp->vattr.va_nblocks = 0;
             inp->vattr.va_atime = iumfs_get_current_time();
-
             mutex_exit(&(inp->i_dlock));
         }
 
