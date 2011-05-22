@@ -1194,7 +1194,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: page exits\n"));
             // rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
             // そうでない場合は共有ロックをかける。
-            pp = page_lookup(vp, off, (rw == S_CREATE | rw == S_WRITE) ? SE_EXCL : SE_SHARED);
+            pp = page_lookup(vp, off, (rw == S_CREATE || rw == S_WRITE) ? SE_EXCL : SE_SHARED);
             if (pp == NULL) {
                 //はじめからやり直し
                 continue;
@@ -1372,6 +1372,9 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          * block（DEV_BSIZE）数から byte 数へ
          */
         bp->b_lblkno = lbtodb(io_off); // 512 で割った数を計算？
+        bp->b_dev = 0;
+        bp->b_edev = 0;
+        bp->b_un.b_addr = 0;        
 #ifdef SOL10
         /*
          * solaris 9 の buf 構造体には以下のメンバーは含まれない。
