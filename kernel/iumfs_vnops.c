@@ -1246,9 +1246,12 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
         bp = pageio_setup(pp, io_len, vp, B_READ);
 
         /*
-         * block（DEV_BSIZE）数から byte 数へ
+         * block (DEV_BSIZE）数から byte 数へ
          */
         bp->b_lblkno = lbtodb(io_off); // 512 で割った数を計算？
+        bp->b_dev = 0;
+        bp->b_edev = 0;
+        bp->b_un.b_addr = 0;
 #ifdef SOL10
         /*
          * solaris 9 の buf 構造体には以下のメンバーは含まれない。
@@ -1279,7 +1282,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             break;
 
         /*
-         *  ページリストの配列(plarr)を初期化する
+         *  breakページの入出力ロックを開放し、ページロックを共有に設定。
          */
         pvn_plist_init(pp, plarr, plsz, off, io_len, rw);
         break;
