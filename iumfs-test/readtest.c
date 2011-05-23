@@ -141,7 +141,6 @@ O_NOLINKS  0x40000 /* don't allow multiple hard links */\n");
     printf("\"%s\"\n",buf);
     printf("read %zd bytes of data at offset %lld.\n", rsize, off);
 
-
     if ((wsize = pwrite(fd, data, size, off)) < 0) {
         printf("pwrite(%s): %s\n", path, strerror(errno));
         ret = errno;

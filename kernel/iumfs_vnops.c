@@ -1171,6 +1171,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
     DEBUG_PRINT((CE_CONT, "iumfs_getapage is called\n"));
     DEBUG_PRINT((CE_CONT, "iumfs_getapage: vnode=%p", vp));
     DEBUG_PRINT((CE_CONT, "iumfs_getapage: off=%d,len=%d,plsz=%d\n", off, len, plsz));
+    cmn_err(CE_CONT, "iumfs_getapage: vnode=%p, off=%" PRId64 ",len=%ld ,plsz=%ld\n", vp, off, len, plsz);//TODO: remove
 
     if (plarr == NULL) {
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: plarr is NULL\n"));
@@ -1178,6 +1179,28 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
         return (0);
     }
     plarr[0] = NULL;
+
+        switch (rw){
+            case S_CREATE:
+                cmn_err(CE_CONT, "iumfs_getapage: S_CREATE\n");
+                break;
+            case S_WRITE:
+                cmn_err(CE_CONT, "iumfs_getapage: S_WRITE\n");
+                break;
+            case S_READ:
+                cmn_err(CE_CONT, "iumfs_getapage: S_READ\n");
+                break;
+            case S_OTHER:
+                cmn_err(CE_CONT, "iumfs_getapage: S_OTHER\n");
+                break;                
+            case S_EXEC:
+                cmn_err(CE_CONT, "iumfs_getapage: S_EXEC\n");
+                break;                
+            case S_READ_NOCOW:
+                cmn_err(CE_CONT, "iumfs_getapage: S_READ_NOCOW\n");
+                break;                
+        }
+    
 
     do {
         err = 0;
@@ -1228,7 +1251,10 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             continue;
         }
 
+        cmn_err(CE_CONT, "iumfs_getapage: pvn_read_kluster succeeded io_off=%" PRId64 ",io_len=%ld\n", io_off, io_len);        
+
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: pvn_read_kluster succeeded io_off=%d,io_len=%d\n", io_off, io_len));
+
 
         /*
          * 読み込むサイズをページサイズに丸め込む。
@@ -1236,6 +1262,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
         io_len = ptob(btopr(io_len));
 
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: ptob(btopr(io_len)) = %d\n", io_len));
+        cmn_err(CE_CONT, "iumfs_getapage: ptob(btopr(io_len)) = %ld\n", io_len);
 
         /*
          * buf 構造体を確保し、初期化する。
