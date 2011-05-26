@@ -33,17 +33,23 @@ RM = rm
 DEFS = @DEFS@
 CFLAGS = $(DEFS) @CFLAGS@  -I ../kernel @PTHREAD_CFLAGS@
 
-PRODUCTS = testfsd fstest
+PRODUCTS = testfsd fstest readtest writetest
 
 INSTALL = @INSTALL@
 
 all: $(PRODUCTS)
 
 testfsd : testfsd.c ../kernel/iumfs.h
-	-$(CC) $(CFLAGS) testfsd.c -lsocket -lnsl -lpthread -o $@
+	-$(CC) $(CFLAGS) $< -lsocket -lnsl -lpthread -o $@
 
 fstest : fstest.c ../kernel/iumfs.h
-	-$(CC) $(CFLAGS) fstest.c -o $@
+	-$(CC) $(CFLAGS) $< -o $@
+
+writetest : writetest.c ../kernel/iumfs.h
+	-$(CC) $(CFLAGS) $< -o $@
+
+readtest : readtest.c ../kernel/iumfs.h
+	-$(CC) $(CFLAGS) $< -o $@
 
 clean:
 	-$(RM) -f $(PRODUCTS) 
@@ -60,4 +66,3 @@ install:
 
 uninstall:
 	-$(RM) -rf /usr/local/bin/fstest
-
