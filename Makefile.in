@@ -70,7 +70,7 @@ distclean:
 	cd iumfs-test ; make distclean
 	-$(RM) -rf $(CONFIGURE_FILES)
 
-cleanlog:
+logclean:
 	rm -rf logs/*
 
 test:
