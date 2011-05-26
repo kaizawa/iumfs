@@ -30,37 +30,35 @@
 # After build iumfs, run this script.
 # You will be prompted password for root user.
 #
-procs=3 # number of processes for stress test
+procs=5 # number of processes for stress test
 stresstime=30 # number of seconds for stress test
 daemonpid=""
+maxumountretries=3 # number of try of umount
 mnt="/var/tmp/iumfsmnt"
 base="/var/tmp/iumfsbase"
 
 init (){
 	LOGDIR=$PWD/logs
-        LOGFILE=$LOGDIR/test-`date '+%Y%m%d-%H:%M:%S'`.log
-        touch $LOGFILE
+        TESTLOGFILE=$LOGDIR/test-`date '+%Y%m%d-%H:%M:%S'`.log
+        DAEMONLOGFILE=$LOGDIR/testfsd-`date '+%Y%m%d-%H:%M:%S'`.log
+        # Create log directory 
+	if [ ! -d "${LOGDIR}" ]; then
+		mkdir ${LOGDIR}
+	fi	
+
+        touch $DAEMONLOGFILE
+        touch $TESTLOGFILE
 	# Just in case, umount ${mnt}
-	while : 
-	do
-		mountexit=`mount |grep "${mnt} "`
-		if [ -z "$mountexit" ]; then
-			break
-		fi
-		sudo umount ${mnt} >> $LOGFILE 2>&1
-	        if [ "$?" -ne 0 ]; then
-			echo "cannot umount ${mnt}"  | tee >> $LOGFILE 2>&1
-			fini 1
-		fi
-	done
+	do_umount
+
  	# kill iumfsd testfsd
-	kill_daemon  >> $LOGFILE 2>&1
+	kill_daemon  >> $TESTLOGFILE 2>&1
 
         # Create mount point directory 
 	if [ ! -d "${mnt}" ]; then
-	    mkdir ${mnt}  >> $LOGFILE 2>&1
+	    mkdir ${mnt}  >> $TESTLOGFILE 2>&1
 	    if [ "$?" -ne 0 ]; then
-		echo "cannot create ${mnt}"  >> $LOGFILE 2>&1
+		echo "cannot create ${mnt}"  >> $TESTLOGFILE 2>&1
 		fini 1
 	    fi
 	fi
@@ -71,12 +69,12 @@ init_testfs(){
         echo "## Preparing required directory for test."
         echo "##"
 	# Just in case, remove existing test dir
-	rm -rf ${base}   >> $LOGFILE 2>&1
+	rm -rf ${base}   >> $TESTLOGFILE 2>&1
         # Create mount base directory 
 	if [ ! -d "${base}" ]; then
-	    mkdir ${base}  >> $LOGFILE 2>&1
+	    mkdir ${base}  >> $TESTLOGFILE 2>&1
 	    if [ "$?" -ne 0 ]; then
-		echo "cannot create ${base}"  >> $LOGFILE 2>&1
+		echo "cannot create ${base}"  >> $TESTLOGFILE 2>&1
 		fini 1
 	    fi
 	fi
@@ -87,27 +85,37 @@ do_build(){
         echo "##"
         echo "## Start building binaries ."
         echo "##"
-	#./configure --enable-debug  >> $LOGFILE 2>&1
-	./configure # >> $LOGFILE 2>&1
-	sudo make uninstall # >> $LOGFILE 2>&1
-	make clean  #>> $LOGFILE 2>&1do_umount() {
-	sudo umount ${mnt}  >> $LOGFILE 2>&1
+	#./configure --enable-debug  >> $TESTLOGFILE 2>&1
+	./configure # >> $TESTLOGFILE 2>&1
+	sudo make uninstall # >> $TESTLOGFILE 2>&1
+	make clean  #>> $TESTLOGFILE 2>&1
+	sudo umount ${mnt}  >> $TESTLOGFILE 2>&1
 	return $?
 }
 
 do_mount () {
-    sudo mount -F iumfs ${1}${base} ${mnt} >> $LOGFILE 2>&1
+    sudo mount -F iumfs ${1}${base} ${mnt} >> $TESTLOGFILE 2>&1
     return $?
 }
 
 do_umount() {
-    sudo umount ${mnt} >> $LOGFILE 2>&1
-    return $?
+	cnt=0;
+	while [ $cnt -lt $maxumountretries ]
+	do
+		sudo umount ${mnt} >> $TESTLOGFILE 2>&1
+		cnt=`expr $cnt + 1`
+		mountexit=`mount |grep "${mnt} "`
+		if [ -z "$mountexit" ]; then
+			return 0
+		fi
+		sleep 1
+	done
+	echo "cannot umount ${mnt}"  | tee >> $TESTLOGFILE 2>&1
+	return 1
 }
 
 start_testfsd() {
-	#./iumfs-test/testfsd -d 3 > iumfs-test/testfsd.log 2>&1 &
-	./iumfs-test/testfsd &
+	./iumfs-test/testfsd -d 3 > $DAEMONLOGFILE 2>&1 &
 	if [ "$?" -eq 0 ]; then
 		daemonpid=$! 
 		return 0		
@@ -116,7 +124,7 @@ start_testfsd() {
 }
 
 kill_daemon(){
-	sudo pkill -KILL testfsd >> $LOGFILE 2>&1
+	sudo pkill -KILL testfsd >> $TESTLOGFILE 2>&1
 	daemonpid=""
 	return 0
 }
@@ -126,11 +134,11 @@ exec_mount_test () {
         for target in mount umount
         do
    	   cmd="do_${target}" 
-	   $cmd  $1 >> $LOGFILE 2>&1
+	   $cmd  $1 >> $TESTLOGFILE 2>&1
 	   if [ "$?" -eq "0" ]; then
 		echo "${target} test: \tpass" 
 	   else
-		echo "${target} test: \tfail  See $LOGFILE" 
+		echo "${target} test: \tfail  See $TESTLOGFILE" 
 		fini 1	
 	   fi
         done    
@@ -139,11 +147,11 @@ exec_mount_test () {
 exec_fstest() {
 	target=$1
 
-	./iumfs-test/fstest $target >> $LOGFILE 2>&1
+	./iumfs-test/fstest $target >> $TESTLOGFILE 2>&1
 	if [ "$?" -eq "0" ]; then
 		echo "${target} test: \tpass" 
 	else
-		echo "${target} test: \tfail  See $LOGFILE" 
+		echo "${target} test: \tfail  See $TESTLOGFILE" 
 	fi
 }
 
@@ -153,21 +161,19 @@ fini() {
         do
             kill $pid > /dev/null 2>&1
         done
-	sleep 1
 	do_umount
 	kill_daemon
-        #rm -rf ${mnt} >> $LOGFILE 2>&1
+        #rm -rf ${mnt} >> $TESTLOGFILE 2>&1
         echo "##"
         echo "## Finished."
         echo "##"
         echo "See log files for detail."
-        echo "$LOGFILE"
-        echo "$LOGDIR/testfsd.log"
+        echo "$TESTLOGFILE"
+        echo "$DAEMONLOGFILE"
         exit 0
 }
 
 do_basic_test(){
-    sleep  3 
     echo "##"
     echo "## Start filesystem operation test with $1 daemon."
     echo "##"
@@ -195,13 +201,13 @@ do_create_and_delete(){
          echo "$count $elapsed $throughput" > $LOGDIR/throughput.$filename
          echo $filename > $filename
 	 if [ "$?" -ne 0 ]; then
-	     echo "do_create_and_delete: cannot create $filenme." | tee >> $LOGFILE 2>&1
+	     echo "do_create_and_delete: cannot create $filenme." | tee >> $TESTLOGFILE 2>&1
              continue
 	 fi
          /bin/ls -aF > /dev/null 2>&1
          rm $filename
 	 if [ "$?" -ne 0 ]; then
-	     echo "do_create_and_delete: cannot remove $filenme." | tee >> $LOGFILE 2>&1
+	     echo "do_create_and_delete: cannot remove $filenme." | tee >> $TESTLOGFILE 2>&1
              continue
 	 fi
      done
@@ -251,7 +257,7 @@ main() {
     start_testfsd
 
     do_basic_test
-#    do_stress_test
+    do_stress_test
 
     fini $1
 }
