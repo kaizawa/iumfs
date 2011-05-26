@@ -74,7 +74,6 @@ main(int argc, char *argv[])
     ssize_t wsize = 0;    
     size_t newsize;
     struct stat st[1];
-    int err = 0;
     const char *path;
     int oflag;
     mode_t mode = 0;
