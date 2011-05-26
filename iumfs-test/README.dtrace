@@ -1,0 +1,8 @@
+count_calls.d: Count # of calls of iumfs's functions every 5 sec.
+trace_calls.d: Show call trace of iumfs's function.
+
+count_uiomove.d: Count # of calls of uiomove.
+count_segmapfault.d: Count # of calls of segmap_fault.
+count_segmapflt.d: Count # of calls of segmapflt.
+stack_segmapfault.d: Print stacktrace when setmap_fault is called.
+trace_segmap_gemapflg.d: Show call trace after segmap_getmapflg get called.
