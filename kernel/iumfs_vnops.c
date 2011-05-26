@@ -1171,7 +1171,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
     DEBUG_PRINT((CE_CONT, "iumfs_getapage is called\n"));
     DEBUG_PRINT((CE_CONT, "iumfs_getapage: vnode=%p", vp));
     DEBUG_PRINT((CE_CONT, "iumfs_getapage: off=%d,len=%d,plsz=%d\n", off, len, plsz));
-    cmn_err(CE_CONT, "iumfs_getapage: vnode=%p, off=%" PRId64 ",len=%ld ,plsz=%ld\n", vp, off, len, plsz);//TODO: remove
+//    cmn_err(CE_CONT, "iumfs_getapage: vnode=%p, off=%" PRId64 ",len=%ld ,plsz=%ld\n", vp, off, len, plsz);//TODO: remove
 
     if (plarr == NULL) {
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: plarr is NULL\n"));
@@ -1180,6 +1180,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
     }
     plarr[0] = NULL;
 
+    /*
         switch (rw){
             case S_CREATE:
                 cmn_err(CE_CONT, "iumfs_getapage: S_CREATE\n");
@@ -1200,6 +1201,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
                 cmn_err(CE_CONT, "iumfs_getapage: S_READ_NOCOW\n");
                 break;                
         }
+    */ //TODO: remove
     
 
     do {
@@ -1217,7 +1219,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: page exits\n"));
             // rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
             // そうでない場合は共有ロックをかける。
-            pp = page_lookup(vp, off, (rw == S_CREATE || rw == S_WRITE) ? SE_EXCL : SE_SHARED);
+            pp = page_lookup(vp, off, (rw == S_CREATE) ? SE_EXCL : SE_SHARED);
             if (pp == NULL) {
                 //はじめからやり直し
                 continue;
@@ -1239,9 +1241,16 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
          * とは無いが、実ファイルシステムのブロックサイズ（ネットワークの転送サイズ）
          * にあわせたほうが効率的と思われる。
          * TODO: 第７引数をFSのブロックサイズへ。
-         */
+
         pp = pvn_read_kluster(vp, off, seg, addr, &io_off, &io_len, off,
                 PAGESIZE, 0);
+         */
+
+        pp = page_create_va(vp, off, PAGESIZE, PG_WAIT, seg, addr);
+
+        io_off  = off;
+        io_len = len;
+        
         /*
          * pvn_read_kluster が NULL を返してきた場合、他の thread が
          * すでに page を参照している可能性がある。lookup からやり直し。
@@ -1259,7 +1268,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
         /*
          * 読み込むサイズをページサイズに丸め込む。
          */
-        io_len = ptob(btopr(io_len));
+        //io_len = ptob(btopr(io_len));
 
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: ptob(btopr(io_len)) = %d\n", io_len));
         cmn_err(CE_CONT, "iumfs_getapage: ptob(btopr(io_len)) = %ld\n", io_len);
@@ -1275,17 +1284,16 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
         /*
          * block (DEV_BSIZE）数から byte 数へ
          */
-        bp->b_lblkno = lbtodb(io_off); // 512 で割った数を計算？
+        bp->b_lblkno = 0; //lbtodb(io_off); // 512 で割った数を計算？
         bp->b_dev = 0;
         bp->b_edev = 0;
-        bp->b_un.b_addr = 0;
 #ifdef SOL10
         /*
          * solaris 9 の buf 構造体には以下のメンバーは含まれない。
          * これらのメンバーには何の意味が・・？ 一応セット
          */
         bp->b_file = vp; // vnode
-        bp->b_offset = (offset_t) off; // vnode offset
+        bp->b_offset = 0; //(offset_t) off; // vnode offset
 #endif
         /*
          * カーネルの仮想アドレス空間にアドレスを確保し、ページの
@@ -1311,7 +1319,8 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
         /*
          *  breakページの入出力ロックを開放し、ページロックを共有に設定。
          */
-        pvn_plist_init(pp, plarr, plsz, off, io_len, rw);
+//        pvn_plist_init(pp, plarr, plsz, off, io_len, rw);
+        pvn_plist_init(pp, plarr, plsz, off, PAGESIZE, rw);
         break;
     } while (1);
 
@@ -1398,7 +1407,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
         /*
          * block（DEV_BSIZE）数から byte 数へ
          */
-        bp->b_lblkno = lbtodb(io_off); // 512 で割った数を計算？
+        bp->b_lblkno = 0 ;//lbtodb(io_off); // 512 で割った数を計算？
         bp->b_dev = 0;
         bp->b_edev = 0;
         bp->b_un.b_addr = 0;        
@@ -1408,7 +1417,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          * これらのメンバーには何の意味が・・？ 一応セット
          */
         bp->b_file = vp; // vnode
-        bp->b_offset = (offset_t) io_off; // vnode offset
+        bp->b_offset = 0; // (offset_t) io_off; // vnode offset
 #endif
 
         /*
