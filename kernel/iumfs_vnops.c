@@ -488,8 +488,7 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
      * まずは Dirty Page を処理する。そうじゃないと、あやまったファイルサイズを
      * 取得してしまう可能性がある。
      * 現在は同期 write しかサポートしていないのでここで put を強制しなくていもよい。
-     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  //TODO 実験 
-     *
+     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  
      */
 
     /*
@@ -555,7 +554,6 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
      */
     if (curr_mtime.tv_sec != prev_mtime.tv_sec){
         DEBUG_PRINT((CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages."));
-        cmn_err(CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages.");//TODO: remove
         // ページを vnode に関連した全ページを無効化する。
         if ((err = iumfs_putpage(vp, 0, 0, B_INVAL, cr))) {
             DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
@@ -618,13 +616,13 @@ iumfs_access(vnode_t *vp, int mode, int ioflag, struct cred *cr)
     inp = VNODE2IUMNODE(vp);
 
     /*
-     * 既存データがある状態(fize!=0)で TRUNCATE は許可されない
-     * ファイルができて最初の書き込みであればいい。
-     */     
+     * Previous code when it was written for HDFS.
+     * Can be removed now.
     if((inp->fsize != 0) && (mode & VWRITE) && (ioflag & FTRUNC)){
-        cmn_err(CE_CONT, "iumfs_access: retuested to truncate file.\n");//TODO: 
-//        err = ENOTSUP;
+        cmn_err(CE_CONT, "iumfs_access: retuested to truncate file.\n");
+        err = ENOTSUP;
     }
+     */         
 
 
     DEBUG_PRINT((CE_CONT, "iumfs_access: return(%d)\n", err));
@@ -723,13 +721,13 @@ iumfs_lookup(vnode_t *dirvp, char *name, vnode_t **vpp, struct pathname *pnp,
              */
             if (vap->va_type & VDIR) {
                 if ((err = iumfs_make_directory(vfsp, &vp, dirvp, cr, foundid)) != 0) {
-                    cmn_err(CE_CONT, "iumfs_lookup: failed to create directory \"%s\"\n", name);
+                    cmn_err(CE_WARN, "iumfs_lookup: failed to create directory \"%s\"\n", name);
                     goto out;
                 }
             } else {
                 if ((err = iumfs_alloc_node(vfsp, &vp, 0,
                         vap->va_type, foundid)) != SUCCESS) {
-                    cmn_err(CE_CONT, "iumfs_lookup: failed to create new node \"%s\"\n", name);
+                    cmn_err(CE_WARN, "iumfs_lookup: failed to create new node \"%s\"\n", name);
                     goto out;
                 }
             }
@@ -744,7 +742,7 @@ iumfs_lookup(vnode_t *dirvp, char *name, vnode_t **vpp, struct pathname *pnp,
             if(foundid == 0){
                 DEBUG_PRINT((CE_CONT, "iumfs_lookup: adding entry to directory"));
                 if (iumfs_add_entry_to_dir(dirvp, name, strlen(name), inp->vattr.va_nodeid) < 0) {
-                    cmn_err(CE_CONT, "iumfs_create: cannot add new entry to directory\n");
+                    cmn_err(CE_WARN, "iumfs_create: cannot add new entry to directory\n");
                     err = ENOSPC;
                     goto out;
                 }
@@ -1198,12 +1196,13 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
          */
         if (page_exists(vp, off)) {
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: page exits\n"));
-            // rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
-            // そうでない場合は共有ロックをかける。
+            /*
+             * rw == S_CREATE の時はファイル作成時で、page に排他ロックを掛ける。
+             * そうでない場合は共有ロックをかける。
+             */ 
             pp = page_lookup(vp, off, rw == S_CREATE ? SE_EXCL : SE_SHARED);
             if (pp == NULL) {
-                //はじめからやり直し
-                continue;
+                continue; //はじめからやり直し
             }
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: page found in cache\n"));
             plarr[0] = pp;
@@ -1240,7 +1239,6 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
          * 読み込むサイズをページサイズに丸め込む。
          */
         io_len = ptob(btopr(io_len));
-
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: ptob(btopr(io_len)) = %d\n", io_len));
 
         /*
@@ -1297,10 +1295,9 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
      * 通常は pageio_done() から呼ばれるので通常
      * pvn_read_done はエラーの時だけで良いらしい。
      */
-    if (err) {
-        if (pp != NULL)
-            pvn_read_done(pp, B_ERROR);
-    }
+    if (err && (pp != NULL))
+        pvn_read_done(pp, B_ERROR);
+    
     DEBUG_PRINT((CE_CONT, "iumfs_getapage: return(%d)\n", err));
     return (err);
 }
@@ -1324,13 +1321,6 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
     iumnode_t *inp;
 
     DEBUG_PRINT((CE_CONT, "iumfs_putapage is called\n"));
-
-#ifdef DEBUG
-    if (offp)
-        DEBUG_PRINT((CE_CONT, "iumfs_putapage: *offp=%d", *offp));
-    if (lenp)
-        DEBUG_PRINT((CE_CONT, "iumfs_putapage: *lenp=%d\n", *lenp));
-#endif // ifdef DEBUG
     DEBUG_PRINT((CE_CONT, "iumfs_putapage: vnode=%p", vp));
 
     // ファイルシステム型依存のノード構造体を得る
@@ -1472,7 +1462,6 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
      */
     if((err = iumfs_access(vp, VWRITE, ioflag, cr))){
         DEBUG_PRINT((CE_CONT, "iumfs_write: file access denied.\n"));            
-//        VN_RELE(vp);  // why did I decrement reference count here?
         goto out;
     }    
 
@@ -1531,7 +1520,6 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * もし 0 とすると uiomove() が呼ばれてページフォルトが発生した段階で初めて
          * iumfs_getpage 呼ばれることになる。
          * リターン値はマップされたカーネルアドレス空間のアドレス。
-         * TODO: どちらにしても uiomove 経由か segmap_getmapfault の中で getpage の冗長呼び出しが発生してしまう > 1,000 回
          */
         DEBUG_PRINT((CE_CONT, "iumfs_write: calling segmap_getmapflt\n"));
         base = segmap_getmapflt(segkmap, vp, mapoff + reloff, mapsz, 0, S_WRITE); 
@@ -1569,17 +1557,6 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             DEBUG_PRINT((CE_CONT, "iumfs_write: maprest=%d\n", maprest));
             DEBUG_PRINT((CE_CONT, "iumfs_write: poff=%d\n", poff));
             DEBUG_PRINT((CE_CONT, "iumfs_write: psz=%d\n", psz));
-
-            //TODO: ここに cmn_err 有効にするかしないかで uiomove の中で呼ばれる getpage の回数が 100 倍位変わる。タイミングか、memory の問題か.
-            //
-            //単に、ここに cmn_err 書くと page が見つからずに request_read が呼ばれるだけだった。
-            //つまり、 page found の時だめ、というのは変わらない模様。
-//            cmn_err(CE_CONT, "iumfs_write: maprest=%d\n", maprest);
-//            cmn_err(CE_CONT, "iumfs_write: poff=%d\n", poff);
-//            cmn_err(CE_CONT, "iumfs_write: psz=%d\n", psz);
-//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%" PRIdMAX ",off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
-//            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%lld,off=0x%llx,preloff=%lld,PAGEOFFSET=0x%lx\n", uiop->uio_loffset, off,preloff,PAGEOFFSET);
-            cmn_err(CE_CONT, "iumfs_write: uiop->uio_loffset=%" PRId64 ",preloff=%" PRId64 "\n", uiop->uio_loffset, preloff);                        
 
             /*
              * 以下のいずれかの場合新しいページを作成
@@ -1685,10 +1662,11 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         DEBUG_PRINT((CE_CONT, "iumfs_write: segmap_release succeeded \n"));
     } while (uiop->uio_resid > 0);
     
-    //TODO: iumnode 構造体の vattr を変えてよいのか? VOP_GETATTR 経由で実際のファイルの mtime を取得すべきでは?
-//    inp->vattr.va_mtime = iumfs_get_current_time(); //TODO: 実験
+    //TODO: iumnode 構造体の vattr を変えてよいのか? VOP_GETATTR 経由で実際のファイルの
+    // mtime を取得すべきでは? コメントアウトする。
+    // inp->vattr.va_mtime = iumfs_get_current_time(); 
 out:
-//    inp->vattr.va_atime = iumfs_get_current_time(); //TODO: 実験
+    //inp->vattr.va_atime = iumfs_get_current_time(); 
     mutex_exit(&(inp->i_dlock));
     DEBUG_PRINT((CE_CONT, "iumfs_write: return(%d)\n", err));
     return (err);
@@ -1763,19 +1741,16 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
          * あった場合には、ファイルサイズを 0 にする。
          * open(2) に O_TRUNC フラグが渡されたら、この関数の flag には FTRUNC
          * フラグが立っていると思っていたが、違った。
-         * HDFS の場合には TRUNC はできないので iumfs_access で ENOTSUP が
-         * 返され、ここには到達しないはず。
          */
         if ((vap->va_mask & AT_SIZE) && (vap->va_size == 0)) {
 
-            cmn_err(CE_CONT, "iumfs_create: AT_SIZE is set. And a_size is 0.\n");
-            cmn_err(CE_CONT, "iumfs_create: retuested to truncate file.\n");
-            /*            
-            err = ENOTSUP;
-            VN_RELE(vp);
-            goto out;
-            */                        
-            // ファイルの vnode の属性情報をセット
+            // ファイルサイズを0にするように指示されたようだ
+            DEBUG_PRINT((CE_CONT, "iumfs_create: AT_SIZE is set. And a_size is 0.\n"));
+            /*
+             * ファイルの vnode の属性情報をセット
+             * TODO: ここでファイルサイズを変えるだけでは実装として不十分
+             * 実際のバッキングストアのファイルサイズを変えるように指示しないと。
+             */                        
             mutex_enter(&(inp->i_dlock));
             err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); // page を破棄する。
             inp->vattr.va_size = 0; // inp->fsize と等価
@@ -1783,7 +1758,6 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
             inp->vattr.va_atime = iumfs_get_current_time();
             mutex_exit(&(inp->i_dlock));
         }
-
         // 引数として渡されたポインタに新しい vnode のアドレスをセット
         *vpp = vp;
         goto out;
@@ -1991,7 +1965,7 @@ iumfs_mkdir(vnode_t *dirvp, char *name, vattr_t *vap, vnode_t **vpp,
      */
     if ((err = iumfs_make_directory_with_name(vfsp, vpp, dirvp, cr, name, 0))
             != SUCCESS){
-        cmn_err(CE_CONT, "iumfs_mkdir: failed to create directory \"%s\"\n", name);
+        cmn_err(CE_WARN, "iumfs_mkdir: failed to create directory \"%s\"\n", name);
         goto out;
     }
 
@@ -2002,7 +1976,7 @@ iumfs_mkdir(vnode_t *dirvp, char *name, vattr_t *vap, vnode_t **vpp,
      * 親ディレクトリ(dirvp) に新しく作成したディレクトリのエントリを追加する。
      */
     if (iumfs_add_entry_to_dir(dirvp, name, namelen, inp->vattr.va_nodeid) < 0 ){
-        cmn_err(CE_CONT, "iumfs_mkdir: cannot add \"%s\" to directory\n", name);
+        cmn_err(CE_WARN, "iumfs_mkdir: cannot add \"%s\" to directory\n", name);
         err = ENOSPC;
         goto out;
     }
@@ -2150,7 +2124,7 @@ iumfs_rmdir(vnode_t *pdirvp, char *name, vnode_t *cdirvp, struct cred *cr)
 /************************************************************************
  * iumfs_space()  VNODE オペレーション
  *
- * TODO: 未実装。ファイルサイズの縮小の為には実装が必須。
+ * TODO: まだ未実装。ファイルサイズの縮小の為には実装が必須。
  *************************************************************************/
 static int
 iumfs_space(vnode_t *vp, int cmd, struct flock64 *bfp, int flag,
