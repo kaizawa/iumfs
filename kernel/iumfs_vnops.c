@@ -1037,7 +1037,7 @@ iumfs_putpage(vnode_t *vp, offset_t off, size_t len, int flags, cred_t *cr)
 
     DEBUG_PRINT((CE_CONT, "iumfs_putpage is called\n"));
     DEBUG_PRINT((CE_CONT, "iumfs_putpage: vnode=%p", vp));
-    DEBUG_PRINT((CE_CONT, "iumfs_putpage: off=%d, len=%d\n", off, len));
+    DEBUG_PRINT((CE_CONT, "iumfs_putpage: off=%" PRId64 ", len=%ld\n", off, len));
 
     if (len == 0) {
         DEBUG_PRINT((CE_CONT, "iumfs_putpage: calling pvn_vplist_dirty\n"));
@@ -1059,7 +1059,7 @@ iumfs_putpage(vnode_t *vp, offset_t off, size_t len, int flags, cred_t *cr)
     rest = len;
     poff = off;
     while (err == 0 && off + len > poff) {
-        DEBUG_PRINT((CE_CONT, "iumfs_putpage: rest=%u, poff=%u\n", rest, poff));
+        DEBUG_PRINT((CE_CONT, "iumfs_putpage: rest=%ld, poff=%" PRId64 "\n", rest, poff));
         /*
          * ページを無効化するのが目的じゃない場合はページをフリーリストから
          * 取得するのを避けるため page_lookup_nowait() を使う。
@@ -1338,7 +1338,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          */
         pp = pvn_write_kluster(vp, pp, &io_off, &io_len, pp->p_offset,
                 PAGESIZE, flags);
-        DEBUG_PRINT((CE_CONT, "iumfs_putapage: pvn_write_kluster succeeded io_off=%d,io_len=%d\n", io_off, io_len));
+        DEBUG_PRINT((CE_CONT, "iumfs_putapage: pvn_write_kluster succeeded io_off=%" PRId64 ",io_len=%ld\n", io_off, io_len));
 
         /*
          * デーモンに対して書き込み要求するサイズを調整。
@@ -1346,7 +1346,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          */
         if (io_off + io_len > inp->fsize) {
             io_len = inp->fsize - io_off;
-            DEBUG_PRINT((CE_CONT, "iumfs_putapage: shorten io_len to %d\n", io_len));
+            DEBUG_PRINT((CE_CONT, "iumfs_putapage: shorten io_len to %ld\n", io_len));
         }
 
         if(io_len <= 0) {
@@ -1495,7 +1495,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * NOTE: PAGESIZE 倍数値 uiop->loffset & ~(PAGESIZE - 1)。
          */
         if (uiop->uio_loffset > inp->fsize) {
-            DEBUG_PRINT((CE_CONT, "iumfs_write: offset(%d) exceeds file size(%u)\n", uiop->uio_loffset, inp->fsize));            
+            DEBUG_PRINT((CE_CONT, "iumfs_write: offset(%" PRId64 ") exceeds file size(%ld)\n", uiop->uio_loffset, inp->fsize));            
         }
 
         mapoff = uiop->uio_loffset & MAXBMASK;
@@ -1507,11 +1507,11 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * resid を mapsz とする。
          */
         mapsz = MIN(mapsz, uiop->uio_resid);
-        DEBUG_PRINT((CE_CONT, "iumfs_write: uio_loffset=%d\n", uiop->uio_loffset));
-        DEBUG_PRINT((CE_CONT, "iumfs_write: uio_resid=%d\n", uiop->uio_resid));
-        DEBUG_PRINT((CE_CONT, "iumfs_write: mapoff=%d\n", mapoff));
-        DEBUG_PRINT((CE_CONT, "iumfs_write: reloff=%d\n", reloff));
-        DEBUG_PRINT((CE_CONT, "iumfs_write: mapsz=%d\n", mapsz));
+        DEBUG_PRINT((CE_CONT, "iumfs_write: uio_loffset=%" PRId64 "\n", uiop->uio_loffset));
+        DEBUG_PRINT((CE_CONT, "iumfs_write: uio_resid=%ld\n", uiop->uio_resid));
+        DEBUG_PRINT((CE_CONT, "iumfs_write: mapoff=%" PRId64 "\n", mapoff));
+        DEBUG_PRINT((CE_CONT, "iumfs_write: reloff=%" PRId64 "\n", reloff));
+        DEBUG_PRINT((CE_CONT, "iumfs_write: mapsz=%ld\n", mapsz));
 
         /*
          * ファイルの指定領域とカーネルアドレス空間のマップを行う。
@@ -1553,10 +1553,10 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             pagecreated = 0;
             pagecreateva = 0;
 
-            DEBUG_PRINT((CE_CONT, "iumfs_write: uiop->uio_loffset=%d,preloff=%d\n", uiop->uio_loffset, preloff));
-            DEBUG_PRINT((CE_CONT, "iumfs_write: maprest=%d\n", maprest));
-            DEBUG_PRINT((CE_CONT, "iumfs_write: poff=%d\n", poff));
-            DEBUG_PRINT((CE_CONT, "iumfs_write: psz=%d\n", psz));
+            DEBUG_PRINT((CE_CONT, "iumfs_write: uiop->uio_loffset=%" PRId64 ",preloff=% " PRId64 "\n", uiop->uio_loffset, preloff));
+            DEBUG_PRINT((CE_CONT, "iumfs_write: maprest=%ld\n", maprest));
+            DEBUG_PRINT((CE_CONT, "iumfs_write: poff=%" PRId64 "\n", poff));
+            DEBUG_PRINT((CE_CONT, "iumfs_write: psz=%ld\n", psz));
 
             /*
              * 以下のいずれかの場合新しいページを作成
@@ -1642,7 +1642,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
              */
             if (uiop->uio_loffset > inp->fsize) {
                 inp->fsize = uiop->uio_loffset;
-                DEBUG_PRINT((CE_CONT, "iumfs_write: file size is changed to %u\n", inp->fsize));
+                DEBUG_PRINT((CE_CONT, "iumfs_write: file size is changed to %ld\n", inp->fsize));
             }
         }
 
