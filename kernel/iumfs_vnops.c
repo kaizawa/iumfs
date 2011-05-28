@@ -365,7 +365,7 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
 
     // オフセット値がファイルサイズを超えている
     if (uiop->uio_loffset > inp->fsize) {
-        DEBUG_PRINT((CE_CONT, "iumfs_read: offset(%d) exceeds file size(%u)\n", uiop->uio_loffset, inp->fsize));
+        DEBUG_PRINT((CE_CONT, "iumfs_read: offset(%" PRId64 ") exceeds file size(%ld)\n", uiop->uio_loffset, inp->fsize));
         err = 0;
         goto out;
     }
@@ -409,11 +409,11 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          */
         mapsz = MIN(mapsz, uiop->uio_resid);
 
-        DEBUG_PRINT((CE_CONT, "iumfs_read: uiop->uio_loffset=%d\n", uiop->uio_loffset));
-        DEBUG_PRINT((CE_CONT, "iumfs_read: uiop->uio_resid=%d\n", uiop->uio_resid));
-        DEBUG_PRINT((CE_CONT, "iumfs_read: mapoff=%d\n", mapoff));
-        DEBUG_PRINT((CE_CONT, "iumfs_read: reloff=%d\n", reloff));
-        DEBUG_PRINT((CE_CONT, "iumfs_read: mapsz=%d\n", mapsz));
+        DEBUG_PRINT((CE_CONT, "iumfs_read: uiop->uio_loffset=%" PRId64 "\n", uiop->uio_loffset));
+        DEBUG_PRINT((CE_CONT, "iumfs_read: uiop->uio_resid=%ld\n", uiop->uio_resid));
+        DEBUG_PRINT((CE_CONT, "iumfs_read: mapoff=%" PRId64 "\n", mapoff));
+        DEBUG_PRINT((CE_CONT, "iumfs_read: reloff=%" PRId64 "\n", reloff));
+        DEBUG_PRINT((CE_CONT, "iumfs_read: mapsz=%ld\n", mapsz));
 
         /*
          * ファイルの指定領域とカーネルアドレス空間のマップを行う。
@@ -442,7 +442,7 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             cmn_err(CE_WARN, "iumfs_read: uiomove failed (%d)\n", err);
             goto out;
         }
-        DEBUG_PRINT((CE_CONT, "iumfs_read: copyout %d bytes of data \n", mapsz));
+        DEBUG_PRINT((CE_CONT, "iumfs_read: copyout %ld bytes of data \n", mapsz));
 
         /*
          * マッピングを解放する。MAXBSIZE 毎のスロットはフリーリストに追加される。
@@ -831,9 +831,9 @@ iumfs_readdir(vnode_t *dirvp, struct uio *uiop, struct cred *cr, int *eofp)
     DIRENT_SANITY_CHECK("iumfs_readdir",dirinp);
     dent_total = dirinp->dlen;
 
-    DEBUG_PRINT((CE_CONT, "iumfs_readdir: dent_total = %d\n", dent_total));
-    DEBUG_PRINT((CE_CONT, "iumfs_readdir: uiop->uio_loffset = %d\n", uiop->uio_loffset));
-    DEBUG_PRINT((CE_CONT, "iumfs_readdir: uiop->uio_resid  = %d\n", uiop->uio_resid));
+    DEBUG_PRINT((CE_CONT, "iumfs_readdir: dent_total = %ld\n", dent_total));
+    DEBUG_PRINT((CE_CONT, "iumfs_readdir: uiop->uio_loffset = %" PRId64 "\n", uiop->uio_loffset));
+    DEBUG_PRINT((CE_CONT, "iumfs_readdir: uiop->uio_resid  = %ld\n", uiop->uio_resid));
 
     /*
      * ユーザが指定したオフセット(uio_loffset)から指定サイズ(uio_resid)まで
@@ -862,7 +862,7 @@ iumfs_readdir(vnode_t *dirvp, struct uio *uiop, struct cred *cr, int *eofp)
     } else {
         err = uiomove((caddr_t) dirinp->data + readoff, readsize, UIO_READ, uiop);
         if (err == SUCCESS)
-            DEBUG_PRINT((CE_CONT, "iumfs_readdir: %d byte copied\n", readsize));
+            DEBUG_PRINT((CE_CONT, "iumfs_readdir: %ld byte copied\n", readsize));
     }
     dirinp->vattr.va_atime = iumfs_get_current_time();
 
@@ -947,7 +947,7 @@ iumfs_seek(vnode_t *vp, offset_t ooff, offset_t *noffp)
     int err = 0;
 
     DEBUG_PRINT((CE_CONT, "iumfs_seek is called\n"));
-    DEBUG_PRINT((CE_CONT, "iumfs_seek: ooff = %d, noffp = %d\n", ooff, *noffp));
+    DEBUG_PRINT((CE_CONT, "iumfs_seek: ooff = %" PRId64 ", noffp = %" PRId64 "\n", ooff, *noffp));
 
     if (*noffp < 0 || *noffp > MAXOFFSET_T) {
         err = EINVAL;
@@ -1002,7 +1002,7 @@ iumfs_getpage(vnode_t *vp, offset_t off, size_t len, uint_t *protp,
 
     DEBUG_PRINT((CE_CONT, "iumfs_getpage is called\n"));
     DEBUG_PRINT((CE_CONT, "iumfs_getpage: vnode=%p", vp));
-    DEBUG_PRINT((CE_CONT, "iumfs_getpage: off=%d,len=%d,plsz=%d\n", off, len, plsz));
+    DEBUG_PRINT((CE_CONT, "iumfs_getpage: off=%" PRId64 ",len=%ld,plsz=%ld\n", off, len, plsz));
 
     /*
      * Set protection bits. If this it is not set, can't write page.
@@ -1174,7 +1174,7 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
 
     DEBUG_PRINT((CE_CONT, "iumfs_getapage is called\n"));
     DEBUG_PRINT((CE_CONT, "iumfs_getapage: vnode=%p", vp));
-    DEBUG_PRINT((CE_CONT, "iumfs_getapage: off=%d,len=%d,plsz=%d\n", off, len, plsz));
+    DEBUG_PRINT((CE_CONT, "iumfs_getapage: off=%" PRId64 ",len=%ld,plsz=%ld\n", off, len, plsz));
 
     if (plarr == NULL) {
         DEBUG_PRINT((CE_CONT, "iumfs_getapage: plarr is NULL\n"));
@@ -1233,13 +1233,13 @@ iumfs_getapage(vnode_t *vp, u_offset_t off, size_t len, uint_t *protp,
             DEBUG_PRINT((CE_CONT, "iumfs_getapage: pvn_read_kluster returned NULL, try lookup again.."));
             continue;
         }
-        DEBUG_PRINT((CE_CONT, "iumfs_getapage: pvn_read_kluster succeeded io_off=%d,io_len=%d\n", io_off, io_len));
+        DEBUG_PRINT((CE_CONT, "iumfs_getapage: pvn_read_kluster succeeded io_off=%" PRId64 ",io_len=%ld\n", io_off, io_len));
 
         /*
          * 読み込むサイズをページサイズに丸め込む。
          */
         io_len = ptob(btopr(io_len));
-        DEBUG_PRINT((CE_CONT, "iumfs_getapage: ptob(btopr(io_len)) = %d\n", io_len));
+        DEBUG_PRINT((CE_CONT, "iumfs_getapage: ptob(btopr(io_len)) = %ld\n", io_len));
 
         /*
          * buf 構造体を確保し、初期化する。
@@ -1345,8 +1345,12 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          * iumfs_write() にて設定されたファイルサイズ以上に書き込むことはしない
          */
         if (io_off + io_len > inp->fsize) {
-            io_len = inp->fsize - io_off;
-            DEBUG_PRINT((CE_CONT, "iumfs_putapage: shorten io_len to %ld\n", io_len));
+            if(inp->fsize < io_off){
+                cmn_err(CE_WARN, " iumfs_putapage: io_ff=%" PRId64 " greater than fsize=%" PRId64 "\n", io_off, inp->fsize);
+            } else {
+                io_len = inp->fsize - io_off;
+                DEBUG_PRINT((CE_CONT, "iumfs_putapage: shorten io_len to %ld\n", io_len));
+            }
         }
 
         if(io_len <= 0) {
@@ -1366,7 +1370,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
         /*
          * block（DEV_BSIZE）数から byte 数へ
          */
-        bp->b_lblkno = 0 ;//lbtodb(io_off); // 512 で割った数を計算？
+        bp->b_lblkno = lbtodb(io_off); // 512 で割った数を計算？
         bp->b_dev = 0;
         bp->b_edev = 0;
         bp->b_un.b_addr = 0;        
@@ -1376,7 +1380,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          * これらのメンバーには何の意味が・・？ 一応セット
          */
         bp->b_file = vp; // vnode
-        bp->b_offset = 0; // (offset_t) io_off; // vnode offset
+        bp->b_offset = (offset_t) io_off; // vnode offset
 #endif
 
         /*
@@ -1602,7 +1606,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
                 goto out;
             }
             wsize = uiop->uio_loffset - off;
-            DEBUG_PRINT((CE_CONT, "iumfs_write: copyin %d bytes of data \n", wsize));
+            DEBUG_PRINT((CE_CONT, "iumfs_write: copyin %ld bytes of data \n", wsize));
 
             /*
              * 作成したページの未使用の領域を 0 で埋める。

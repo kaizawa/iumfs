@@ -121,7 +121,7 @@ iumfs_request_read(struct buf *bp, vnode_t *vp)
     offset = ldbtob(bp->b_lblkno);
     size = bp->b_bcount;
 
-    DEBUG_PRINT((CE_CONT, "iumfs_request_read: offset = %D, size = %d\n", offset, size));
+    DEBUG_PRINT((CE_CONT, "iumfs_request_read: offset = %" PRId64 ", size = %ld\n", offset, size));
 
     do {
         /*
@@ -284,7 +284,7 @@ iumfs_request_readdir(vnode_t *dirvp)
         //namelen = IUMFS_DIRENT_NAMELEN(idp->i_reclen);
         namelen = strlen(idp->i_name);
 
-        DEBUG_PRINT((CE_CONT, "iumfs_request_readdir: name=\"%s\",reclen=%d,namelen=%d\n", name, reclen, namelen));
+        DEBUG_PRINT((CE_CONT, "iumfs_request_readdir: name=\"%s\",reclen=%ld,namelen=%ld\n", name, reclen, namelen));
 
         /*
          * デーモンからのデータを元に算出したサイズの正常性をチェック
@@ -744,7 +744,7 @@ iumfs_request_getattr(vnode_t *vp)
         mutex_enter(&cntlsoft->d_lock);
         res = (response_t *) cntlsoft->bufaddr;
         DEBUG_PRINT((CE_CONT, "iumfs_request_getattr: got a response from daemon.\n"));
-        DEBUG_PRINT((CE_CONT, "iumfs_request_getattr: datasize=%d, result=%d\n", res->datasize, res->result));
+        DEBUG_PRINT((CE_CONT, "iumfs_request_getattr: datasize=%ld, result=%ld\n", res->datasize, res->result));
         if (res->datasize < sizeof (iumfs_vattr_t)) {
             /*
              * データ部のサイズが小さい。リクエストを解除してエラーリターン
@@ -824,7 +824,7 @@ iumfs_request_write(struct buf *bp, vnode_t *vp)
         offset = ldbtob(bp->b_lblkno);
         size = bp->b_bcount;
 
-        DEBUG_PRINT((CE_CONT, "iumfs_request_write: offset = %D, size = %d\n", offset, size));
+        DEBUG_PRINT((CE_CONT, "iumfs_request_write: offset = %" PRId64 ", size = %ld\n", offset, size));
 
         /*
          * オープン中で未使用の iumfscntl デバイスを受け取る。 
