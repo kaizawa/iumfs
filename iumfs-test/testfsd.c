@@ -344,7 +344,7 @@ become_daemon()
  *
  * エラーメッセージを表示するルーチン。
  *
- * debuglevel 0 で LOG_WARRNING 以上のメッセージを出力（デフォルト）
+ * debuglevel 0 で LOG_WARNING 以上のメッセージを出力（デフォルト）
  * debuglevel 1 で LOG_NOTICE 以上のメッセージを出力 
  * debuglevel 2 で LOG_INFO 以上のメッセージを出力 
  * debuglevel 3 で LOG_DEBUG 以上のメッセージを出力
@@ -387,7 +387,9 @@ print_err(int level, char *format, ...)
 void
 close_filefd(testcntl_t * const testp)
 {
-    close(testp->filefd);
+    if(close(testp->filefd) < 0){
+        PRINT_ERR((LOG_WARNING, "close_filefd: close failed: %s\n", strerror(errno)));
+    }
 
     testp->filefd = -1;
 
@@ -782,8 +784,13 @@ process_create_request(testcntl_t * const testp, const char *pathname)
         PRINT_ERR((LOG_DEBUG, "process_create_request: open: %s\n",strerror(errno)));        
         err = errno;
     } else {        
-        PRINT_ERR((LOG_DEBUG, "process_create_request: opened new fd=%d, closing old fd=%d \n", fd, testp->filefd));
-        close(testp->filefd);
+        if(fd != testp->filefd) {
+            PRINT_ERR((LOG_DEBUG, "process_create_request: opened new fd=%d, closing old fd=%d \n", fd, testp->filefd));            
+            close(testp->filefd);
+        } else {
+            PRINT_ERR((LOG_DEBUG, "process_create_request: opened new fd=%d\n", fd));
+        }
+        
         testp->filefd = fd;
         strlcpy(testp->pathname, pathname, strlen(pathname) + 1);
     }
