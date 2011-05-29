@@ -935,6 +935,7 @@ path2fd(testcntl_t * const testp, char *pathname, int oflag)
         PRINT_ERR((LOG_DEBUG, "path2fd: opened new fd=%d, closing old fd=%d \n", fd, testp->filefd));
         close(testp->filefd);
         testp->filefd = fd;
+        testp->oflag = oflag;
         strlcpy(testp->pathname, pathname, strlen(pathname) + 1);
     }else {
         PRINT_ERR((LOG_DEBUG, "path2fd: uses existing fd=%d\n", fd));
