@@ -1039,6 +1039,8 @@ iumfs_putpage(vnode_t *vp, offset_t off, size_t len, int flags, cred_t *cr)
     DEBUG_PRINT((CE_CONT, "iumfs_putpage: vnode=%p", vp));
     DEBUG_PRINT((CE_CONT, "iumfs_putpage: off=%" PRId64 ", len=%ld\n", off, len));
 
+    cmn_err(CE_CONT, "iumfs_putpage: off=%" PRId64 ", len=%ld\n", off, len);//TODO:return
+
     if (len == 0) {
         DEBUG_PRINT((CE_CONT, "iumfs_putpage: calling pvn_vplist_dirty\n"));
         if ((err = pvn_vplist_dirty(vp, off, iumfs_putapage, B_INVAL, cr))) {
@@ -1338,19 +1340,22 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          */
         pp = pvn_write_kluster(vp, pp, &io_off, &io_len, pp->p_offset,
                 PAGESIZE, flags);
+            
         DEBUG_PRINT((CE_CONT, "iumfs_putapage: pvn_write_kluster succeeded io_off=%" PRId64 ",io_len=%ld\n", io_off, io_len));
-
+        cmn_err(CE_CONT, "iumfs_putapage: pvn_write_kluster succeeded io_off=%" PRId64 ",io_len=%ld\n", io_off, io_len); //TODO:remove
         /*
          * デーモンに対して書き込み要求するサイズを調整。
          * iumfs_write() にて設定されたファイルサイズ以上に書き込むことはしない
          */
         if (io_off + io_len > inp->fsize) {
             if(inp->fsize < io_off){
+                // オフセットがすでにファイルサイズを越えている。
+                io_off = inp->fsize;
                 cmn_err(CE_WARN, " iumfs_putapage: io_ff=%" PRId64 " greater than fsize=%" PRId64 "\n", io_off, inp->fsize);
-            } else {
-                io_len = inp->fsize - io_off;
-                DEBUG_PRINT((CE_CONT, "iumfs_putapage: shorten io_len to %ld\n", io_len));
-            }
+            } 
+            io_len = inp->fsize - io_off;
+            DEBUG_PRINT((CE_CONT, "iumfs_putapage: shorten io_len to %ld\n", io_len));
+            cmn_err(CE_CONT, "iumfs_putapage: shorten io_len to %ld\n", io_len);
         }
 
         if(io_len <= 0) {
@@ -1516,6 +1521,9 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         DEBUG_PRINT((CE_CONT, "iumfs_write: mapoff=%" PRId64 "\n", mapoff));
         DEBUG_PRINT((CE_CONT, "iumfs_write: reloff=%" PRId64 "\n", reloff));
         DEBUG_PRINT((CE_CONT, "iumfs_write: mapsz=%ld\n", mapsz));
+
+        cmn_err(CE_CONT, "iumfs_write: uio_loffset=%" PRId64 "\n", uiop->uio_loffset); //TODO:remove
+        cmn_err(CE_CONT, "iumfs_write: uio_resid=%ld\n", uiop->uio_resid); //TODO:remove 
 
         /*
          * ファイルの指定領域とカーネルアドレス空間のマップを行う。
