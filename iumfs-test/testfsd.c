@@ -529,9 +529,12 @@ process_read_request(testcntl_t * const testp, char *pathname, off_t offset, siz
         strlcpy(testp->pathname, pathname, strlen(pathname) + 1);
     }
 
-    readsize = pread(fd, readp, size, offset);
+    if((readsize = pread(fd, readp, size, offset)) < 0){
+        PRINT_ERR((LOG_INFO, "process_read_request: failed to pread %s from fd=%d, %s (%d) %d\n",
+                   pathname, fd, strerror(errno), errno));
+    }
+    
     PRINT_ERR((LOG_INFO, "process_read_request: pread returned %d\n", readsize));
-
     res->request_type = READ_REQUEST;
     if (readsize < 0) {
         res->datasize = 0;        
