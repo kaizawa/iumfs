@@ -81,6 +81,7 @@ typedef struct testcntl {
     char *response_buffer;
     char *read_buffer;
     pthread_t tid;
+    int oflag;
 } testcntl_t;
 
 /*
@@ -108,6 +109,7 @@ int process_remove_request(testcntl_t *, const char *);
 int process_mkdir_request(testcntl_t *, const char *);
 int process_rmdir_request(testcntl_t *, const char *);
 void *request_loop(void *);
+int path2fd(testcntl_t *, char *, int);
 
 int debuglevel = 0; // とりあえず デフォルトのデバッグレベルを 1 にする
 int use_syslog = 0; // メッセージを STDERR でなく、syslog に出力する
@@ -513,33 +515,25 @@ process_read_request(testcntl_t * const testp, char *pathname, off_t offset, siz
     readp = (char *) res + sizeof (response_t);
 
     PRINT_ERR((LOG_DEBUG, "process_read_request: pathhame=%s, testp->pathname=%s\n", pathname, testp->pathname));
-    /*
-     * 既存のfilefdのパス名を確認し、もしこれから読もうとしているファイル
-     * と別のパス名だったら新規のFDをオープンし、既存のFDをクローズする。
-     */
-    if (fd < 0 || (strcmp(testp->pathname, pathname) != 0)) {
-        if ((fd = open(pathname, O_RDWR)) < 0) {
-            PRINT_ERR((LOG_DEBUG, "process_read_request: failed to open %s : %s (%d)\n", pathname, strerror(errno), errno));
-            err = errno;
-            goto out;
-        } 
-        PRINT_ERR((LOG_DEBUG, "process_read_request: opened new fd=%d, closing old fd=%d \n", fd, testp->filefd));
-        close(testp->filefd);
-        testp->filefd = fd;
-        strlcpy(testp->pathname, pathname, strlen(pathname) + 1);
+
+    if ((fd = path2fd(testp, pathname, O_RDWR)) < 0) {
+        err = errno;
+        goto out;
     }
 
-    if((readsize = pread(fd, readp, size, offset)) < 0){
-        PRINT_ERR((LOG_INFO, "process_read_request: failed to pread %s from fd=%d, %s (%d) %d\n",
-                   pathname, fd, strerror(errno), errno));
+    readsize = pread(fd, readp, size, offset);
+    PRINT_ERR((LOG_INFO, "process_read_request: pread returned %d\n", readsize));    
+    if(readsize < 0){
+        PRINT_ERR((LOG_INFO, "process_read_request: failed to pread fd=%d: %s (%d) \n",
+                   fd, strerror(errno), errno));
+        sleep(3000);
     }
-    
-    PRINT_ERR((LOG_INFO, "process_read_request: pread returned %d\n", readsize));
+
     res->request_type = READ_REQUEST;
     if (readsize < 0) {
         res->datasize = 0;        
         err = errno;
-        close_filefd(testp);
+//        close_filefd(testp);
         PRINT_ERR((LOG_DEBUG, "process_read_request: %s (%d)\n",strerror(errno),errno));        
     } else {
         res->datasize = readsize;
@@ -712,22 +706,10 @@ process_write_request(testcntl_t * const testp, char *pathname, off_t offset,
     writep = (char *) testp->request_buffer + sizeof (request_t);
 
     PRINT_ERR((LOG_DEBUG, "process_write_request: pathhame=%s, testp->pathname=%s\n", pathname, testp->pathname));
-    /*
-     * 既存のfilefdのパス名を確認し、もしこれから書き込もうとしているファイル
-     * と別のパス名だったら新規のFDをオープンし、既存のFDをクローズする。
-     */
-    if (fd < 0 || (strcmp(testp->pathname, pathname) != 0)) {
-        if ((fd = open(pathname, O_RDWR)) < 0) {
-            print_err(LOG_ERR, "process_readdir_request: opendir couldn't open %s\n", pathname);            
-            err = errno;
-            goto out;
-        }
-        PRINT_ERR((LOG_DEBUG, "process_write_request: opened new fd=%d, closing old fd=%d \n", fd, testp->filefd));
-        close(testp->filefd);
-        testp->filefd = fd;
-        strlcpy(testp->pathname, pathname, strlen(pathname) + 1);
-    } else {
-        PRINT_ERR((LOG_DEBUG, "process_write_request: uses existing fd=%d\n", fd));
+
+    if ((fd = path2fd(testp, pathname, O_RDWR)) < 0) {
+        err = errno;
+        goto out;
     }
 
     /*
@@ -787,7 +769,7 @@ process_create_request(testcntl_t * const testp, const char *pathname)
         PRINT_ERR((LOG_DEBUG, "process_create_request: open: %s\n",strerror(errno)));        
         err = errno;
     } else {        
-        if(fd != testp->filefd) {
+        if(fd > 0 && fd != testp->filefd) {
             PRINT_ERR((LOG_DEBUG, "process_create_request: opened new fd=%d, closing old fd=%d \n", fd, testp->filefd));            
             close(testp->filefd);
         } else {
@@ -795,6 +777,7 @@ process_create_request(testcntl_t * const testp, const char *pathname)
         }
         
         testp->filefd = fd;
+        testp->oflag = ivap->i_mode;
         strlcpy(testp->pathname, pathname, strlen(pathname) + 1);
     }
     
@@ -919,4 +902,43 @@ process_rmdir_request(testcntl_t * const testp, const char *pathname)
     res->result = err;
     write(testp->devfd, res, sizeof (response_t));
     return(err);
+}
+
+/*****************************************************************************
+ * path2fd
+ *
+ * testcntl 構造体に保存されている fd が要求されている path の物として有効化どうかを
+ * チェックし、有効なら既存の FD を、違ったら再オープンしてその FD を返す。
+ *
+ *  引数：
+ *           testp     : testcntl 構造体
+ *           pathname  : ファイル操作を行うファイルのパス名
+ *
+ * 戻り値：
+ *           正常時:  ファイルディスクリプタ
+ *         エラー時:  -1
+ *****************************************************************************/
+int
+path2fd(testcntl_t * const testp, char *pathname, int oflag)
+{
+    int fd = testp->filefd;
+    
+    /*
+     * 既存のfilefdのパス名を確認し、もしこれから読もうとしているファイル
+     * と別のパス名だったら新規のFDをオープンし、既存のFDをクローズする。
+     */
+    if ((fd < 0) || (strcmp(testp->pathname, pathname) != 0) || (testp->oflag != oflag)) { 
+        if ((fd = open(pathname, O_RDWR)) < 0) {
+            PRINT_ERR((LOG_DEBUG, "path2fd: failed to open %s : %s (%d)\n", pathname, strerror(errno), errno));
+            return (-1);
+        } 
+        PRINT_ERR((LOG_DEBUG, "path2fd: opened new fd=%d, closing old fd=%d \n", fd, testp->filefd));
+        close(testp->filefd);
+        testp->filefd = fd;
+        strlcpy(testp->pathname, pathname, strlen(pathname) + 1);
+    }else {
+        PRINT_ERR((LOG_DEBUG, "path2fd: uses existing fd=%d\n", fd));
+    }
+
+    return(testp->filefd);
 }
