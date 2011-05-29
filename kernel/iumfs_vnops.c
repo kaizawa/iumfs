@@ -1448,7 +1448,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
     int pagecreateva = 0; // 新しいページがpage_create_va()で作られたかどうか。
 
     offset_t off = 0; // uiomove 前のオフセット値
-    size_t wsize = 0; // uiomove で書き込まれたサイズ
+    offset_t wsize = 0; // uiomove で書き込まれたサイズ
     offset_t poff = 0; // ページ境界線までのオフセット値    
     offset_t preloff = 0; // ページ境界からの相対的なオフセット値
     size_t maprest = 0; // マップサイズ内でまだ uiomove されていないサイズ。
@@ -1620,7 +1620,11 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
              */
             if (pagecreated) {
                 if (uiop->uio_loffset & PAGEOFFSET || wsize == 0) {
-                    (void) kzero(uiomvbase + wsize, PAGESIZE - wsize);
+                    if(wsize > PAGESIZE){
+                        cmn_err(CE_WARN, "iumfs_write: copyin size(%" PRId64 ") is larger than pagesize\n", wsize);
+                    } else {
+                        (void) kzero(uiomvbase + wsize, PAGESIZE - wsize);
+                    }
                 }
 #ifdef FORCE_LOCK_ON_PAGECREATE
                 // segmap_fault によって unlock を行う。
