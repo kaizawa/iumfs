@@ -64,6 +64,7 @@
 #define NEW_FILE_PATH_5  NEW_DIR_PATH_2 "/" NEW_FILE_NAME_5
 
 int pagesize;
+void print_usage(char *);
 
 int
 main(int argc, char *argv[])
@@ -78,32 +79,35 @@ main(int argc, char *argv[])
     mode_t mode = 0;
     const uchar_t *data;
     offset_t off;
-    size_t size;    
+    size_t size;
+    int use_lseek= 1;
+    int c;
 
-    if (argc != 7) {
-        printf("Usage: %s path oflag mode data off size\n", argv[0]);
-        printf("\n\
-O_RDONLY   0\n\
-O_WRONLY   1\n\
-O_RDWR     2\n\
-O_SEARCH   0x200000\n\
-O_EXEC     0x400000\n\
-O_CREAT    0x100   /* open with file create (uses third arg) */\n\
-O_TRUNC    0x200   /* open with truncation */\n\
-O_EXCL     0x400   /* exclusive open */\n\
-O_NOCTTY   0x800   /* don't allocate controlling tty (POSIX) */\n\
-O_XATTR    0x4000  /* extended attribute */\n\
-O_NOFOLLOW 0x20000 /* don't follow symlinks */\n\
-O_NOLINKS  0x40000 /* don't allow multiple hard links */\n");        
-        ret = 1;
-        goto out;
+    while ((c = getopt(argc, argv, "l")) != EOF) {
+        switch (c) {
+            case 'l':
+                use_lseek = 1;
+                printf("l is set\n");
+                
+                break;
+            default:
+                print_usage(argv[0]);
+        }
     }
+    /*
+    if((use_lseek  && argc != 8 ) ||
+        ( !use_lseek && argc != 7)){
+        printf("argc=%d\n", argc);
+        print_usage(argv[0]);
+        exit(1);
+    }
+    */
 
     pagesize = getpagesize();
 
     path = argv[1];
     oflag = strtol(argv[2], (char **)NULL, 16);    
-    mode = (mode_t)strtol(argv[3], (char **)NULL, 8);        
+    mode = (mode_t)strtol(argv[3], (char **)NULL, 8);
     data = argv[4];
     off = atoi(argv[5]);
     size = atoi(argv[6]);
@@ -116,10 +120,21 @@ O_NOLINKS  0x40000 /* don't allow multiple hard links */\n");
         goto out;
     }
 
-    if ((wsize = pwrite(fd, data, size, off)) < 0) {
-        printf("pwrite(%s): %s\n", path, strerror(errno));
-        ret = errno;
-        goto out;
+    if(use_lseek){
+        if(llseek(fd, off, SEEK_SET) < 0){
+            printf("llseek(%s): %s\n", path, strerror(errno));
+        }
+        if ((wsize = write(fd, data, size)) < 0) {
+            printf("write(%s): %s\n", path, strerror(errno));
+            ret = errno;
+            goto out;
+        }        
+    } else {
+        if ((wsize = pwrite(fd, data, size, off)) < 0) {
+            printf("pwrite(%s): %s\n", path, strerror(errno));
+            ret = errno;
+            goto out;
+        }
     }
 
     if (wsize != size) {
@@ -140,4 +155,23 @@ O_NOLINKS  0x40000 /* don't allow multiple hard links */\n");
 
 out:
     return (ret);
+}
+
+void
+print_usage(char *name)
+{
+        printf("Usage: %s path oflag mode data off size [ -l ]\n", name);
+        printf("\n\
+O_RDONLY   0\n\
+O_WRONLY   1\n\
+O_RDWR     2\n\
+O_SEARCH   0x200000\n\
+O_EXEC     0x400000\n\
+O_CREAT    0x100   /* open with file create (uses third arg) */\n\
+O_TRUNC    0x200   /* open with truncation */\n\
+O_EXCL     0x400   /* exclusive open */\n\
+O_NOCTTY   0x800   /* don't allocate controlling tty (POSIX) */\n\
+O_XATTR    0x4000  /* extended attribute */\n\
+O_NOFOLLOW 0x20000 /* don't follow symlinks */\n\
+O_NOLINKS  0x40000 /* don't allow multiple hard links */\n");        
 }
