@@ -319,6 +319,7 @@ iumfs_close(vnode_t *vp, int flag, int count, offset_t offset,
     int err = 0;
 
     DEBUG_PRINT((CE_CONT, "iumfs_close is called\n"));
+    cmn_err(CE_CONT, "iumfs_close is called\n");    //TODO:remove
     /*
      * B_INVAL フラグは処理が終わったあとそのーページを破棄するように
      * 依頼すること。putpage をサイズ0で呼び出すことで、全ページの
@@ -485,10 +486,10 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     DEBUG_PRINT((CE_CONT, "iumfs_getattr: pathname=%s\n", inp->pathname));
 
     /*
-     * まずは Dirty Page を処理する。そうじゃないと、あやまったファイルサイズを
+     * まずは Dirty page を処理する。そうじゃないと、あやまったファイルサイズを
      * 取得してしまう可能性がある。
      * 現在は同期 write しかサポートしていないのでここで put を強制しなくていもよい。
-     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  
+     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); 
      */
 
     /*
@@ -554,6 +555,7 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
      */
     if (curr_mtime.tv_sec != prev_mtime.tv_sec){
         DEBUG_PRINT((CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages."));
+        cmn_err(CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages.");
         // ページを vnode に関連した全ページを無効化する。
         if ((err = iumfs_putpage(vp, 0, 0, B_INVAL, cr))) {
             DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
@@ -884,6 +886,7 @@ iumfs_fsync(vnode_t *vp, int syncflag, struct cred *cr)
     int err = 0;
     
     DEBUG_PRINT((CE_CONT, "iumfs_fsync is called\n"));
+    cmn_err(CE_CONT, "iumfs_fsync is called\n");    //TODO:remove
     inp = VNODE2IUMNODE(vp);
     mutex_enter(&(inp->i_dlock));    
     err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
@@ -906,13 +909,16 @@ iumfs_inactive(vnode_t *vp, struct cred *cr)
 {
     vnode_t *rootvp;
     int err = 0;
+    iumnode_t *inp;//TODO:remove
 
     DEBUG_PRINT((CE_CONT, "iumfs_inactive is called\n"));
+    cmn_err(CE_CONT, "iumfs_inactive is called\n");//TODO:remove
     
     /*
      * 変更されたページのディスクへの書き込みが行う
+     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
+     * iumfs_free_node の中で pvn_vplist_dirty を使って行うことにした。
      */
-    err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
 
     rootvp = VNODE2ROOT(vp);
 
@@ -930,6 +936,10 @@ iumfs_inactive(vnode_t *vp, struct cred *cr)
     } else {
         DEBUG_PRINT((CE_CONT, "iumfs_inactive: vnode is not rootvp\n"));
     }
+
+    //TODO:remove
+    inp = VNODE2IUMNODE(vp);
+    cmn_err(CE_CONT, "iumfs_inactive: vp=0x%p vpath=%s\n", vp,vp->v_path);
 
     // iumfsnode, vnode を free する。
     iumfs_free_node(vp, cr);
@@ -1003,6 +1013,7 @@ iumfs_getpage(vnode_t *vp, offset_t off, size_t len, uint_t *protp,
     DEBUG_PRINT((CE_CONT, "iumfs_getpage is called\n"));
     DEBUG_PRINT((CE_CONT, "iumfs_getpage: vnode=%p", vp));
     DEBUG_PRINT((CE_CONT, "iumfs_getpage: off=%" PRId64 ",len=%ld,plsz=%ld\n", off, len, plsz));
+    cmn_err(CE_CONT, "iumfs_getpage: vnode=0x%p", vp);//TODO:remove
 
     /*
      * Set protection bits. If this it is not set, can't write page.
@@ -1041,8 +1052,12 @@ iumfs_putpage(vnode_t *vp, offset_t off, size_t len, int flags, cred_t *cr)
 
     if (len == 0) {
         DEBUG_PRINT((CE_CONT, "iumfs_putpage: calling pvn_vplist_dirty\n"));
-        if ((err = pvn_vplist_dirty(vp, off, iumfs_putapage, B_INVAL, cr))) {
+        if ((err = pvn_vplist_dirty(vp, off, iumfs_putapage, flags, cr))) {
+            //    if ((err = pvn_vplist_dirty(vp, off, iumfs_putapage, B_INVAL, cr))) {//TODO:remove            
             cmn_err(CE_WARN, "iumfs_putpage: pvn_vplist_dirty failed (%d)\n", err);
+        }
+        if ((flags & B_INVAL) && vn_has_cached_data(vp)) {
+            cmn_err(CE_WARN, "iumfs_putpage: page still cached\n");
         }
         DEBUG_PRINT((CE_CONT, "iumfs_putpage: pvn_vplist_dirty returned with (%d)\n", err));
         goto out;
@@ -1578,8 +1593,10 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
              *    サイズがファイルサイズ以上だった場合。
              *    （つまり、元データの読み込みが必要ない場合。）
              *     これによって、不要なページデータの取得(=getpage())を防ぐ。
+             * 3) ファイルサイズが 0 の時
              */
-            if ((poff > inp->fsize) ||
+            if (inp->fsize == 0 ||
+                (poff > inp->fsize) ||
                     (preloff == 0 && (psz == PAGESIZE ||
                     (uiop->uio_loffset + psz > inp->fsize)))) {
                 DEBUG_PRINT((CE_CONT, "iumfs_write: calling segmap_pagecreate\n"));
@@ -1623,6 +1640,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
                     if(wsize > PAGESIZE){
                         cmn_err(CE_WARN, "iumfs_write: copyin size(%" PRId64 ") is larger than pagesize\n", wsize);
                     } else {
+                        cmn_err(CE_WARN, "iumfs_write: copyin size %" PRId64 "\n", wsize);                        
                         (void) kzero(uiomvbase + wsize, PAGESIZE - wsize);
                     }
                 }
@@ -1737,6 +1755,7 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
          */
         DEBUG_PRINT((CE_CONT, "iumfs_create: file already exists.\n"));
         inp = VNODE2IUMNODE(vp);
+        cmn_err(CE_CONT, "iumfs_create: existing vnode found vp=0x%p. v_path=%s\n", vp, vp->v_path);//TODO:remove        
 
         if (excl == EXCL) {
             /*
@@ -1763,6 +1782,7 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
 
             // ファイルサイズを0にするように指示されたようだ
             DEBUG_PRINT((CE_CONT, "iumfs_create: AT_SIZE is set. And a_size is 0.\n"));
+            cmn_err(CE_CONT, "iumfs_create: AT_SIZE is set. And a_size is 0.\n");  //TODO:remove
             /*
              * ファイルの vnode の属性情報をセット
              * TODO: ここでファイルサイズを変えるだけでは実装として不十分
@@ -1798,6 +1818,7 @@ iumfs_create(vnode_t *dirvp, char *name, vattr_t *vap, vcexcl_t excl,
         cmn_err(CE_CONT, "iumfs_create: cannot allocate vnode for file\n");
         goto out;
     }
+    cmn_err(CE_CONT, "iumfs_create: new vnode created vp=0x%p. v_path=%s\n", vp, vp->v_path);//TODO:remove        
 
     newinp = VNODE2IUMNODE(vp);
 
