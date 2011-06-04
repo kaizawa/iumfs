@@ -228,6 +228,14 @@ iumfs_free_node(vnode_t *vp, struct cred *cr)
 
     DEBUG_PRINT((CE_CONT, "iumfs_free_node: vnode=%p, vp->v_count=%d\n", vp, vp->v_count));
 
+    if (vn_has_cached_data(vp)) {
+        //TODO: B_INVAL でもいいかも。
+        if ((err = pvn_vplist_dirty(vp, 0, iumfs_putapage, B_FREE, cr))) {
+            cmn_err(CE_WARN, "iumfs_free_node pvn_vplist_dirty failed (%d)\n", err);
+            return;
+        }        
+    } 
+
     /*
      * 最初にノードリンクリストから iumnode をはずす。誰かが利用中(EBUSY)だったらリターン。
      * 仮にノードリストに入っていなかったとしても、（ありえないはずだが) vnode のフリーは行う。
