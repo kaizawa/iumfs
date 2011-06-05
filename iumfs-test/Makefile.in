@@ -27,6 +27,7 @@
 CONFIGURE_FILES = Makefile config.status config.cache config.h config.log
 
 CC = @CC@
+CPP = @CXX@
 LD = ld
 RM = rm
 
@@ -42,8 +43,8 @@ all: $(PRODUCTS)
 testfsd : testfsd.c ../kernel/iumfs.h
 	-$(CC) $(CFLAGS) testfsd.c -lsocket -lnsl -lpthread -o $@
 
-fstest : fstest.c ../kernel/iumfs.h
-	-$(CC) $(CFLAGS) fstest.c -o $@
+fstest : fstest.cpp ../kernel/iumfs.h
+	-$(CPP)  -g -O2 -Wall -DSOL11 -DSOL10  -I ../kernel -pthreads fstest.cpp -o fstest
 
 writetest : writetest.c ../kernel/iumfs.h
 	-$(CC) $(CFLAGS) writetest.c -o $@
