@@ -1624,19 +1624,14 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
              * 作成したページの未使用の領域を 0 で埋める。
              */
             if (pagecreated) {
-                /*
-                 * This routin resulted in touching unmaped address and caused panic!!
-                 * commnet out this routine at this moment.
-                 * But anyway, initializing unused range would be ncecessary..
                 if (uiop->uio_loffset & PAGEOFFSET || wsize == 0) {
                     if(wsize > PAGESIZE){
                         cmn_err(CE_WARN, "iumfs_write: copyin size(%" PRId64 ") is larger than pagesize\n", wsize);
                     } else {
                         cmn_err(CE_WARN, "iumfs_write: copyin size %" PRId64 "\n", wsize);                        
-                        (void) kzero(uiomvbase + wsize, PAGESIZE - wsize);
+                        (void) kzero(uiomvbase + wsize, PAGESIZE - (preloff + wsize));
                     }
                 }
-                */
 #ifdef FORCE_LOCK_ON_PAGECREATE
                 // segmap_fault によって unlock を行う。
                 DEBUG_PRINT((CE_CONT, "iumfs_write: calling segmap_fault\n"));
