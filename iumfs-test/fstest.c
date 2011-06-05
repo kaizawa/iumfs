@@ -317,7 +317,7 @@ out:
     if (ret) {
         printf("\tend: Failed\n");
     }
-    printf("getattr_test: Finish\n");
+    printf("readdir_test: Finish\n");
     return ret;
 }
 
@@ -862,3 +862,4 @@ do_rmdir(const char *dirpath)
     }
     return 0;
 }
+
