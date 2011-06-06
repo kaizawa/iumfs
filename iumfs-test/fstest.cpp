@@ -364,6 +364,7 @@ public:
     int runTest();
 };
 
+#define REWRITABLE_FILESYSTEM
 int
 WriteTest::runTest()
 {

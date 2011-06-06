@@ -160,7 +160,7 @@ out:
 void
 print_usage(char *name)
 {
-        printf("Usage: %s path oflag mode data off size [ -l ]\n", name);
+        printf("Usage: %s path oflag mode data off size\n", name);
         printf("\n\
 O_RDONLY   0\n\
 O_WRONLY   1\n\
