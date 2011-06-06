@@ -485,10 +485,10 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     DEBUG_PRINT((CE_CONT, "iumfs_getattr: pathname=%s\n", inp->pathname));
 
     /*
-     * まずは Dirty Page を処理する。そうじゃないと、あやまったファイルサイズを
+     * まずは Dirty page を処理する。そうじゃないと、あやまったファイルサイズを
      * 取得してしまう可能性がある。
      * 現在は同期 write しかサポートしていないのでここで put を強制しなくていもよい。
-     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);  
+     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr); 
      */
 
     /*
@@ -905,14 +905,14 @@ static void
 iumfs_inactive(vnode_t *vp, struct cred *cr)
 {
     vnode_t *rootvp;
-    int err = 0;
 
     DEBUG_PRINT((CE_CONT, "iumfs_inactive is called\n"));
     
     /*
      * 変更されたページのディスクへの書き込みが行う
+     * err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
+     * iumfs_free_node の中で pvn_vplist_dirty を使って行うことにした。
      */
-    err = iumfs_putpage(vp, 0, 0, B_INVAL, cr);
 
     rootvp = VNODE2ROOT(vp);
 
@@ -1041,8 +1041,11 @@ iumfs_putpage(vnode_t *vp, offset_t off, size_t len, int flags, cred_t *cr)
 
     if (len == 0) {
         DEBUG_PRINT((CE_CONT, "iumfs_putpage: calling pvn_vplist_dirty\n"));
-        if ((err = pvn_vplist_dirty(vp, off, iumfs_putapage, B_INVAL, cr))) {
+        if ((err = pvn_vplist_dirty(vp, off, iumfs_putapage, flags, cr))) {
             cmn_err(CE_WARN, "iumfs_putpage: pvn_vplist_dirty failed (%d)\n", err);
+        }
+        if ((flags & B_INVAL) && vn_has_cached_data(vp)) {
+
         }
         DEBUG_PRINT((CE_CONT, "iumfs_putpage: pvn_vplist_dirty returned with (%d)\n", err));
         goto out;
@@ -1578,8 +1581,10 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
              *    サイズがファイルサイズ以上だった場合。
              *    （つまり、元データの読み込みが必要ない場合。）
              *     これによって、不要なページデータの取得(=getpage())を防ぐ。
+             * 3) ファイルサイズが 0 の時
              */
-            if ((poff > inp->fsize) ||
+            if (inp->fsize == 0 ||
+                (poff > inp->fsize) ||
                     (preloff == 0 && (psz == PAGESIZE ||
                     (uiop->uio_loffset + psz > inp->fsize)))) {
                 DEBUG_PRINT((CE_CONT, "iumfs_write: calling segmap_pagecreate\n"));
@@ -1591,7 +1596,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
                  * これは page_create_va() でとられたページも unlock するので、
                  * あえて segmap_pageunlock を呼ぶ必要がない.
                  */
-                pagecreateva = segmap_pagecreate(segkmap, uiomvbase, psz, 1);
+                pagecreateva = segmap_pagecreate(segkmap, uiomvbase, psz, 1);                
 #else                
                 pagecreateva = segmap_pagecreate(segkmap, uiomvbase, psz, 0);
 #endif
@@ -1623,7 +1628,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
                     if(wsize > PAGESIZE){
                         cmn_err(CE_WARN, "iumfs_write: copyin size(%" PRId64 ") is larger than pagesize\n", wsize);
                     } else {
-                        (void) kzero(uiomvbase + wsize, PAGESIZE - wsize);
+                        (void) kzero(uiomvbase + wsize, PAGESIZE - (preloff + wsize));
                     }
                 }
 #ifdef FORCE_LOCK_ON_PAGECREATE

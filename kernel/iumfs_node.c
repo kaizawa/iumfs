@@ -261,6 +261,9 @@ iumfs_free_node(vnode_t *vp, struct cred *cr)
      */
     err = pvn_vplist_dirty(vp, 0, iumfs_putapage, B_INVAL, cr);
     DEBUG_PRINT((CE_CONT, "iumfs_free_node: pvn_vplist_dirty returned with (%d)\n", err));
+    if (vn_has_cached_data(vp)) {
+        cmn_err(CE_WARN, "iumfs_free_node: vnode still have cached\n");        
+    } 
 
     // iumnode を解放
     mutex_destroy(&(inp)->i_dlock);

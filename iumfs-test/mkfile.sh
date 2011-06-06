@@ -3,7 +3,6 @@
 num=1
 
 cd /var/tmp/iumfsmnt
-
 while :
 do
 	mkfile ${num}k ${num}k

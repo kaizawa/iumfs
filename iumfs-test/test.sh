@@ -234,13 +234,33 @@ do_stress_test(){
         cnt=`expr $cnt + 1`
     done
 
-    echo "$pids started"
+    echo "$pids started"  >> $TESTLOGFILE 2>&1
 
     ## Sleep for complete
-    echo "Sleep $stresstime sec..."
+    echo "Sleep $stresstime sec..." >> $TESTLOGFILE 2>&1
     sleep $stresstime
 
     echo "stress test: \tpass" 
+}
+
+do_mkfile_test() {
+    echo "##"
+    echo "## Start mkfile test"
+    echo "##"
+    cnt=1
+    while [ $cnt -lt 30 ]; 
+    do
+        num=1                           
+        while [ $num -lt 10 ];          
+        do                              
+            #dd if=/dev/zero of=${num}k bs=1k count=${num}
+    	    mkfile ${num}k ${mnt}/${num}k   > /dev/null 2>&1
+    	    num=`expr ${num} + 1`   
+        done                            
+        rm ${mnt}/*k
+        cnt=`expr ${cnt} + 1` 
+    done
+    echo "mkfile test: \tpass" 
 }
 
 main() { 
@@ -257,6 +277,7 @@ main() {
     start_testfsd
 
     do_basic_test
+    do_mkfile_test
     do_stress_test
 
     fini $1
