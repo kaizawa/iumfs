@@ -228,13 +228,16 @@ iumfscntl_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
             cntlsoft->state |= BUFFER_INVALID; // マップされたアドレスのデータが不正であることを知らせる
             cntlsoft->error = EIO; // エラーをセット
             cv_broadcast(&cntlsoft->cv); // thread を起こす
+            /*
+             *  ここでも RETURN せずに mutex を破棄したところ、(当然ながら)
+             *  PANIC が発生。detach は失敗させる。
+             */            
+            return (DDI_FAILURE);            
         }
         cntlsoft->state &= ~IUMFSCNTL_OPENED;
         mutex_exit(&cntlsoft->s_lock);
 
-        /*
-         *  もしここで上記のワーニングの状況が発生するならここで開放作業をするのは良くないかもしれない。
-         */
+
         mutex_destroy(&cntlsoft->d_lock);
         mutex_destroy(&cntlsoft->s_lock);
         kmem_free(cntlsoft->bufaddr, DEVICE_BUFFER_SIZE);
