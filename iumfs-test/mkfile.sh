@@ -1,4 +1,7 @@
 #!/bin/sh
+# Test script.
+# Previously system panic happend when running this script.
+# This problem had already been fixed.
 
 num=1
 

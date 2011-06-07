@@ -1,6 +1,8 @@
 #!/bin/sh
-# Panic happen in iumf_write at kzero where handling pagefault.
+# Test script.
+# Previously paanic happened in iumf_write at kzero where handling pagefault.
 # if file are created and deleted continualy.
+# This issue had alread been resolved.
 
 cd /var/tmp/iumfsmnt            
 cnt=1
