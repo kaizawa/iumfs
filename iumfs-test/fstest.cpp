@@ -364,7 +364,6 @@ public:
     int runTest();
 };
 
-#define REWRITABLE_FILESYSTEM
 int
 WriteTest::runTest()
 {
@@ -373,9 +372,7 @@ WriteTest::runTest()
     size_t datasize = 0;    
     size_t rsize = 0;
     offset_t offset = 0;
-#ifdef REWRITABLE_FILESYSTEM        
     size_t filesize = 0;
-#endif
 
     cout << "write_test: Start" << endl;
 
@@ -444,8 +441,6 @@ WriteTest::runTest()
     free(dummydata);    
     cout << "\tend: Success" << endl;
     
-#ifdef REWRITABLE_FILESYSTEM
-// HDFS は オフセット指定の書き込みができないので以下のテストは行えない。    
     /*
      * PAGE サイズ以内で、ファイルサイズ以上の書き込みテスト
     */    
@@ -479,7 +474,6 @@ WriteTest::runTest()
 
     }    
     cout << "\tend: Success" << endl;
-#endif // #ifdef REWRITABLE_FILESYSTEM
     
   out:
     if(dummydata){
