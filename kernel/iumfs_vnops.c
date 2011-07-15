@@ -355,12 +355,21 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
     // ファイルシステム型依存のノード構造体を得る
     inp = VNODE2IUMNODE(vp);
 
+        
     mutex_enter(&(inp->i_dlock));
 
     if (!(inp->vattr.va_type | VREG)) {
         DEBUG_PRINT((CE_CONT, "iumfs_read: file is not regurar file\n"));
         err = ENOTSUP;
         goto out;
+    }
+
+    /*
+     * ファイルが更新されているかのうせいがあるので、まず属性情報を更新しておく。
+     * 遅くなるかも。(属性情報の取得タイミングは課題)
+     */
+    if((err = iumfs_request_getattr(vp)) != 0){
+      goto out;
     }
 
     // オフセット値がファイルサイズを超えている
@@ -395,8 +404,11 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * もし要求されているオフセット値からの残りのサイズが 0 以下だった場合は
          * リターンする。
          */
-        if (rest <= 0)
+        if (rest <= 0){
+            DEBUG_PRINT((CE_CONT, "iumfs_read: rest(=%ld) less than equal zero\n", rest));            
             goto out;
+        }
+        
         /*
          * もし mapsz がファイルの残りのサイズ(rest) よりも大きかったら rest を
          * mapsz とする。
@@ -1509,7 +1521,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * NOTE: PAGESIZE 倍数値 uiop->loffset & ~(PAGESIZE - 1)。
          */
         if (uiop->uio_loffset > inp->fsize) {
-            DEBUG_PRINT((CE_CONT, "iumfs_write: offset(%" PRId64 ") exceeds file size(%ld)\n", uiop->uio_loffset, inp->fsize));            
+            DEBUG_PRINT((CE_CONT, "iumfs_write: offset(%" PRId64 ") exceeds file size(%ld)\n", uiop->uio_loffset, inp->fsize));
         }
 
         mapoff = uiop->uio_loffset & MAXBMASK;
