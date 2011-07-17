@@ -372,6 +372,9 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
       goto out;
     }
 
+    DEBUG_PRINT((CE_CONT, "iumfs_read: offset=%" PRId64 ",resid=%ld,fsize=%ld\n",
+                 uiop->uio_loffset, uiop->uio_resid,inp->fsize));
+    
     // オフセット値がファイルサイズを超えている
     if (uiop->uio_loffset > inp->fsize) {
         DEBUG_PRINT((CE_CONT, "iumfs_read: offset(%" PRId64 ") exceeds file size(%ld)\n", uiop->uio_loffset, inp->fsize));
