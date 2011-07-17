@@ -782,6 +782,10 @@ iumfs_request_getattr(vnode_t *vp)
         inp->vattr.va_type = ivap->i_type;
         inp->vattr.va_mtime.tv_sec = ivap->mtime_sec;
         inp->vattr.va_mtime.tv_nsec = ivap->mtime_nsec;
+        inp->vattr.va_atime.tv_sec = ivap->atime_sec;
+        inp->vattr.va_atime.tv_nsec = ivap->atime_nsec;
+        inp->vattr.va_ctime.tv_sec = ivap->ctime_sec;
+        inp->vattr.va_ctime.tv_nsec = ivap->ctime_nsec;        
         mutex_exit(&cntlsoft->d_lock);
 
         /*
@@ -968,6 +972,10 @@ iumfs_request_create(vnode_t *dirvp, char *name, vattr_t *vap)
         ivap->i_type =vap->va_type;
         ivap->mtime_sec = vap->va_mtime.tv_sec;
         ivap->mtime_nsec = vap->va_mtime.tv_nsec;
+        ivap->atime_sec = vap->va_atime.tv_sec;
+        ivap->atime_nsec = vap->va_atime.tv_nsec;
+        ivap->ctime_sec = vap->va_ctime.tv_sec;
+        ivap->ctime_nsec = vap->va_ctime.tv_nsec;
         /*
          * 最後にopen(2)に渡されたフラグをセット
          */ 
@@ -1155,6 +1163,10 @@ iumfs_request_mkdir(vnode_t *dirvp, char *name, vattr_t *vap)
         ivap->i_type =vap->va_type;
         ivap->mtime_sec = vap->va_mtime.tv_sec;
         ivap->mtime_nsec = vap->va_mtime.tv_nsec;
+        ivap->atime_sec = vap->va_atime.tv_sec;
+        ivap->atime_nsec = vap->va_atime.tv_nsec;
+        ivap->ctime_sec = vap->va_ctime.tv_sec;
+        ivap->ctime_nsec = vap->va_ctime.tv_nsec;        
         cntlsoft->bufusedsize = sizeof (request_t) + req->datasize;    
         mutex_exit(&cntlsoft->d_lock); // checking
 
