@@ -768,15 +768,15 @@ iumfs_request_getattr(vnode_t *vp)
              * デーモンから渡された i_type(/usr/include/sys/vnode.h)がおかしい.
              * おそらくデーモンの実装に問題があると思われる。
              */ 
-            cmn_err(CE_WARN, "iumf_request_getattr: i_type(%d) is illegal. Could be daemon's bug.\n", ivap->i_type);
+            cmn_err(CE_WARN, "iumf_request_getattr: i_type(%" PRId64 ") is illegal. Could be daemon's bug.\n", ivap->i_type);
             mutex_exit(&cntlsoft->d_lock);
             iumfs_daemon_request_exit(cntlsoft);
             err = EAGAIN;
             goto out;
         }
         
-        DEBUG_PRINT((CE_CONT, "iumfs_request_getattr: i_type=%ld, i_mode=%ld, i_size=%ld\n",
-                     ivap->i_type, ivap->i_mode, ivap->i_size));
+        DEBUG_PRINT((CE_CONT, "iumfs_request_getattr: i_type=%" PRId64 ", i_mode=%" PRId64 ", i_size=%" PRId64 "\n",
+                    ivap->i_type, ivap->i_mode, ivap->i_size));
         inp->vattr.va_mode = ivap->i_mode;
         inp->vattr.va_size = ivap->i_size;
         inp->vattr.va_type = ivap->i_type;
