@@ -750,7 +750,7 @@ iumfs_request_getattr(vnode_t *vp)
              * データ部のサイズが小さい。リクエストを解除してエラーリターン
              * EAGAIN は適切じゃないかも・・・
              */
-            cmn_err(CE_CONT, "iumfs_request_getattr: res->datasize(%lld) != sizeof(iumfs_vattr_t)(%lld)\n",
+            cmn_err(CE_WARN, "iumfs_request_getattr: res->datasize(%lld) != sizeof(iumfs_vattr_t)(%lld)\n",
                     (longlong_t) res->datasize, (longlong_t)sizeof (iumfs_vattr_t));
             mutex_exit(&cntlsoft->d_lock);
             iumfs_daemon_request_exit(cntlsoft);
@@ -763,6 +763,18 @@ iumfs_request_getattr(vnode_t *vp)
          * モード、サイズ、タイプ、更新時間のみ。
          */
         ivap = (iumfs_vattr_t *) ((char *) res + sizeof (response_t));
+        if (ivap->i_type > 11) {
+            /*
+             * デーモンから渡された i_type(/usr/include/sys/vnode.h)がおかしい.
+             * おそらくデーモンの実装に問題があると思われる。
+             */ 
+            cmn_err(CE_WARN, "iumf_request_getattr: i_type(%d) is illegal. Could be daemon's bug.\n", ivap->i_type);
+            mutex_exit(&cntlsoft->d_lock);
+            iumfs_daemon_request_exit(cntlsoft);
+            err = EAGAIN;
+            goto out;
+        }
+        
         DEBUG_PRINT((CE_CONT, "iumfs_request_getattr: i_type=%ld, i_mode=%ld, i_size=%ld\n",
                      ivap->i_type, ivap->i_mode, ivap->i_size));
         inp->vattr.va_mode = ivap->i_mode;
