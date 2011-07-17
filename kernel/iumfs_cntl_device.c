@@ -461,7 +461,13 @@ iumfscntl_write(dev_t dev, struct uio *uiop, cred_t *credp)
         DEBUG_PRINT((CE_CONT, "iumfscntl_write: copyin %d bytes from daemon. (error=%d)\n", size, res->result));
     }
 
-    cntlsoft->state &= ~DAEMON_INPROGRESS; // DAEMON_INPROGRESS フラグを解除
+    /*
+     * DAEMON_INPROGRESS と REQUEST_IS_SET  フラグを解除
+     * REQUEST_IS_SET をここで解除しないと、iumfs_request_exit() が呼ばれるまでに
+     * 再度デーモンから iumfscntl_read が呼ばれた場合に「データ有り」とみなされてしま
+     * 可能性がある。
+     */  
+    cntlsoft->state &= ~(DAEMON_INPROGRESS | REQUEST_IS_SET); 
 
     DEBUG_PRINT((CE_CONT, "iumfscntl_write: state = 0x%x\n", cntlsoft->state));
 
