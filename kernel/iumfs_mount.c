@@ -121,30 +121,31 @@ main(int argc, char *argv[])
     }
 
     /*
-     * mount コマンドに渡されたリソース部分から ftp サーバ名と、マウントする
+     * mount コマンドに渡されたリソース部分から サーバ名と、マウントする
      * ベースディレクトリを解釈する。
      */
-    
+    printf("1 resource=%s\n", resource);    
     if((server_and_path = strstr(resource, "://")) == NULL){
         printf("No protocol specified\n");        
         print_usage(argv[0]);
     }
+    printf("0 server_and_path=%s\n", server_and_path);    
     server_and_path += 4;
     if(strlen (resource) < server_and_path - resource){
         printf("No server name specified\n");        
         print_usage(argv[0]);
     }
-    if((path = strstr(server_and_path, "/")) == NULL){
-        printf("No pathname specified\n");
-        print_usage(argv[0]);
-    }
-    n = strcspn(server_and_path, "/");
-    strncpy(mountopts->server, resource, path - resource);
-    strcpy(mountopts->basepath, path);
-
-    if(strlen(mountopts->basepath)==0)
-        strcpy(mountopts->basepath, "/");
+    printf("1 server_and_path=%s\n", server_and_path);
     
+    if((path = strstr(server_and_path, "/"))){
+        n = strcspn(server_and_path, "/");
+        strncpy(mountopts->server, resource, path - resource);
+        strcpy(mountopts->basepath, path);
+    } else {
+        strcpy(mountopts->server, resource);
+        strcpy(mountopts->basepath, "/");
+    }
+
     if(verbose){
         printf("user = %s\n", mountopts->user);
         printf("pass = %s\n", mountopts->pass);
@@ -170,9 +171,11 @@ main(int argc, char *argv[])
 void
 print_usage(char *argv)
 {
-    printf("Usage: %s -F iumfs protocol://base_path mount_point\n", argv);
+    printf("Usage: %s -F iumfs [-o [user=username[,pass=password],verbose]] protocol://base_path mount_point\n", argv);
     printf("Example)\n");
-    printf("    mount -F iumfs hdfs://user/username /mnt\n");
+    printf("    mount -F iumfs ftp://hostname/basepath /mnt\n");    
+    printf("    mount -F iumfs hdfs://hostname/basepath /mnt\n");
+    printf("    mount -F iumfs twitterfs://twitter.com /mnt\n");    
     exit(0);    
 }
 
