@@ -124,18 +124,15 @@ main(int argc, char *argv[])
      * mount コマンドに渡されたリソース部分から サーバ名と、マウントする
      * ベースディレクトリを解釈する。
      */
-    printf("1 resource=%s\n", resource);    
     if((server_and_path = strstr(resource, "://")) == NULL){
         printf("No protocol specified\n");        
         print_usage(argv[0]);
     }
-    printf("0 server_and_path=%s\n", server_and_path);    
     server_and_path += 4;
     if(strlen (resource) < server_and_path - resource){
         printf("No server name specified\n");        
         print_usage(argv[0]);
     }
-    printf("1 server_and_path=%s\n", server_and_path);
     
     if((path = strstr(server_and_path, "/"))){
         n = strcspn(server_and_path, "/");
