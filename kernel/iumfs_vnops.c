@@ -92,7 +92,8 @@ static int iumfs_rename(vnode_t *, char *, vnode_t *, char *, struct cred *);
 static int iumfs_mkdir(vnode_t *, char *, vattr_t *, vnode_t **, struct cred *);
 static int iumfs_rmdir(vnode_t *, char *, vnode_t *, struct cred *);
 static int iumfs_space(vnode_t *, int, struct flock64 *, int, offset_t,
-                       struct cred *); 
+                       struct cred *);
+static int iumfs_getattr_verify(vnode_t *, struct cred *);
 #else
 static int iumfs_ioctl(vnode_t *, int, intptr_t, int, struct cred *, int *);
 static int iumfs_setfl(vnode_t *, int, int, struct cred *);
@@ -355,7 +356,6 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
     // ファイルシステム型依存のノード構造体を得る
     inp = VNODE2IUMNODE(vp);
 
-        
     mutex_enter(&(inp->i_dlock));
 
     if (!(inp->vattr.va_type | VREG)) {
@@ -363,12 +363,13 @@ iumfs_read(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
         err = ENOTSUP;
         goto out;
     }
-
+    
     /*
-     * ファイルが更新されているかのうせいがあるので、まず属性情報を更新しておく。
-     * 遅くなるかも。(属性情報の取得タイミングは課題)
+     * ファイルが更新されている可能性があるのでまず属性情報を更新しておく。
+     * これによってファイルが更新された際に既存 PAGE の無効化が行われるので古い PAGE
+     * 内の無効なオフセット値のデータ(多くはNULL)を読んでしまうのを防ぐ。
      */
-    if((err = iumfs_request_getattr(vp)) != 0){
+    if((err = iumfs_getattr_verify(vp, cr)) != 0){
       goto out;
     }
 
@@ -490,7 +491,6 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     iumnode_t *inp;
     int err = 0;
     timestruc_t prev_mtime; // キャッシュしていた更新日時
-    timestruc_t curr_mtime; // 最新の更新日時
 
     DEBUG_PRINT((CE_CONT, "iumfs_getattr is called\n"));
 
@@ -509,71 +509,9 @@ iumfs_getattr(vnode_t *vp, vattr_t *vap, int flags, struct cred *cr)
     /*
      * ユーザモードデーモンに最新の属性情報を問い合わせる。
      */
-    mutex_enter(&(inp->i_dlock));    
-    if((err = iumfs_request_getattr(vp)) != 0){
-      goto out;
-    }
-    
-    /*
-     * TODO: ここで vnode の 参照カウントを減らしては駄目だ。上位ではこの後も vnode を使うので
-     * ここで参照カウント減らすと、free されて fop_getattr 内でpanic に至る。
-     * しかし、じゃあだれが減らすのか?という問題も残る。
-     * iumfs_request_readdir とかでサーバ側にエントリが亡くなった時点で参照カウント外すべきなのかも。。。
-     * 
-    if (err && iumfs_is_root(vp) == FALSE) {
-        //
-        // 対象ファイルが Server 上に見つからなかった。エントリを削除する。
-        // ファイルシステム・ルートの場合は削除はせず、現状のデータを返す。
-        //
-        DEBUG_PRINT((CE_CONT, "iumfs_getattr: can't update latest attr of vnode(=%p)", vp));
-        // 親ディレクトリを探す
-        if ((parentvp = iumfs_find_parent_vnode(vp)) == NULL) {
-            cmn_err(CE_CONT, "iumfs_getattr: failed to find parent vnode of \"%s\"\n", inp->pathname);
-            DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
-            return (err);
-        }
-        // パス名より名前を得る
-        if ((name = strrchr(inp->pathname, '/')) == NULL) {
-            cmn_err(CE_CONT, "iumfs_getattr: failed to get name of \"%s\"\n", inp->pathname);
-            DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
-            return (err);
-        }
-        // スラッシュから始まっているので、一文字ずらす
-        name++;
-
-        //
-        // 親ディレクトリからエントリを削除
-        // その後、iumfs_find_parent_vnode() で増やされたの親ディレクトリの参照カウント分を減らす 
-        //
-        iumfs_remove_entry_from_dir(parentvp, name);
-        VN_RELE(parentvp);
-
-        //
-        // 最後にこの vnode の参照カウントを減らす。
-        // この vnode を参照中の人がいるかもしれないので（たとえば shell の
-        // カレントディレクトリ）、ここでは free はしない。
-        // 参照数が 1 になった段階で iumfs_inactive() が呼ばれ、iumfs_inactive()
-        // から free される。
-        //
-        VN_RELE(vp); // vnode 作成時に増加された参照カウント分を減らす。
-        DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
-        return (err);
-    }
-    */
-    
-    curr_mtime = inp->vattr.va_mtime;
-
-    /*
-     * 更新日が変更されていたら vnode に関連したページを無効化する
-     * nsec の精度はないので比較しない。
-     */
-    if (curr_mtime.tv_sec != prev_mtime.tv_sec){
-        DEBUG_PRINT((CE_CONT, "iumfs_getattr: mtime has been changed. invalidating pages."));
-        // ページを vnode に関連した全ページを無効化する。
-        if ((err = iumfs_putpage(vp, 0, 0, B_INVAL, cr))) {
-            DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
-            goto out;
-        }
+    mutex_enter(&(inp->i_dlock));
+    if((err = iumfs_getattr_verify(vp, cr)) != 0){
+        goto out;
     }
 
     /*
@@ -2172,6 +2110,100 @@ iumfs_space(vnode_t *vp, int cmd, struct flock64 *bfp, int flag,
     return (ENOTSUP);
 }
 
+/************************************************************************
+ * iumfs_getattr_verify
+ *
+ * iumfs_getattr, iumfs_read から呼ばれ、ファイルの属性情報をユーザモードデーモン
+ * に問い合わせに行く。ファイルが変更されている場合は vnode に関連した Page を無効化
+ * する。
+ * この関数を呼ぶ前にかならず iumfsnode のロック(inp->i_dlock)を取っておかなければ
+ * ならない。
+ *************************************************************************/
+static int
+iumfs_getattr_verify(vnode_t *vp, struct cred *cr)
+{
+    iumnode_t *inp;
+    int err = 0;    
+    timestruc_t prev_mtime; // キャッシュしていた更新日時
+    timestruc_t curr_mtime; // 最新の更新日時
+
+    DEBUG_PRINT((CE_CONT, "iumfs_getattr_verify is called\n"));
+
+    inp = VNODE2IUMNODE(vp);
+    prev_mtime = inp->vattr.va_mtime;
+    
+    if((err = iumfs_request_getattr(vp)) != 0){
+      goto out;
+    }
+    
+    /*
+     * TODO: ここで vnode の 参照カウントを減らしては駄目だ。上位ではこの後も vnode を使うので
+     * ここで参照カウント減らすと、free されて fop_getattr 内でpanic に至る。
+     * しかし、じゃあだれが減らすのか?という問題も残る。
+     * iumfs_request_readdir とかでサーバ側にエントリが亡くなった時点で参照カウント外すべきなのかも。。。
+     * 
+    if (err && iumfs_is_root(vp) == FALSE) {
+        //
+        // 対象ファイルが Server 上に見つからなかった。エントリを削除する。
+        // ファイルシステム・ルートの場合は削除はせず、現状のデータを返す。
+        //
+        DEBUG_PRINT((CE_CONT, "iumfs_getattr: can't update latest attr of vnode(=%p)", vp));
+        // 親ディレクトリを探す
+        if ((parentvp = iumfs_find_parent_vnode(vp)) == NULL) {
+            cmn_err(CE_CONT, "iumfs_getattr: failed to find parent vnode of \"%s\"\n", inp->pathname);
+            DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
+            return (err);
+        }
+        // パス名より名前を得る
+        if ((name = strrchr(inp->pathname, '/')) == NULL) {
+            cmn_err(CE_CONT, "iumfs_getattr: failed to get name of \"%s\"\n", inp->pathname);
+            DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
+            return (err);
+        }
+        // スラッシュから始まっているので、一文字ずらす
+        name++;
+
+        //
+        // 親ディレクトリからエントリを削除
+        // その後、iumfs_find_parent_vnode() で増やされたの親ディレクトリの参照カウント分を減らす 
+        //
+        iumfs_remove_entry_from_dir(parentvp, name);
+        VN_RELE(parentvp);
+
+        //
+        // 最後にこの vnode の参照カウントを減らす。
+        // この vnode を参照中の人がいるかもしれないので（たとえば shell の
+        // カレントディレクトリ）、ここでは free はしない。
+        // 参照数が 1 になった段階で iumfs_inactive() が呼ばれ、iumfs_inactive()
+        // から free される。
+        //
+        VN_RELE(vp); // vnode 作成時に増加された参照カウント分を減らす。
+        DEBUG_PRINT((CE_CONT, "iumfs_getattr: return(%d)\n", err));
+        return (err);
+    }
+    */
+    
+    curr_mtime = inp->vattr.va_mtime;
+
+    DEBUG_PRINT((CE_CONT, "iumfs_getattr_verify: prev_mtime=%ld, curr_mtime=%ld\n", prev_mtime.tv_sec, curr_mtime.tv_sec));
+    /*
+     * 更新日が変更されていたら vnode に関連したページを無効化する
+     * nsec の精度はないので比較しない。
+     */
+    if (curr_mtime.tv_sec != prev_mtime.tv_sec){
+        DEBUG_PRINT((CE_CONT, "iumfs_getattr_verify: mtime has been changed. invalidating pages."));
+        // ページを vnode に関連した全ページを無効化する。
+        if ((err = iumfs_putpage(vp, 0, 0, B_INVAL, cr)) != 0 ){
+            goto out;
+        }
+    }
+    
+  out:
+    DEBUG_PRINT((CE_CONT, "iumfs_getattr_verify: return(%d)\n", err));    
+    return (err);
+}
+
+
 #ifndef SOL10
 /*
  *  この ifndef 内の関数は現在は未使用。
@@ -2457,3 +2489,5 @@ iumfs_shrlock(vnode_t *vp, int cmd, struct shrlock *shr, int flag)
 }
 
 #endif // #ifndef SOL10
+
+
