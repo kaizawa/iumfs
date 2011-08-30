@@ -1579,7 +1579,7 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
             if (pagecreated) {
                 if (uiop->uio_loffset & PAGEOFFSET || wsize == 0) {
                     if(wsize > PAGESIZE){
-                        cmn_err(CE_WARN, "iumfs_write: copyin size(%" PRId64 ") is larger than pagesize\n", wsize);
+                        cmn_err(CE_WARN, "iumfs_write: copyin size(%llu) is larger than pagesize\n", wsize);
                     } else {
                         (void) kzero(uiomvbase + wsize, PAGESIZE - (preloff + wsize));
                     }
