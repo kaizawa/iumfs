@@ -2116,7 +2116,7 @@ iumfs_space(vnode_t *vp, int cmd, struct flock64 *bfp, int flag,
  * iumfs_getattr, iumfs_read から呼ばれ、ファイルの属性情報をユーザモードデーモン
  * に問い合わせに行く。ファイルが変更されている場合は vnode に関連した Page を無効化
  * する。
- * この関数を呼ぶ前にかならず iumfsnode のロック(inp->i_dlock)を取っておかなければ
+ * この関数を呼ぶ前にかならず iumnode のロック(inp->i_dlock)を取っておかなければ
  * ならない。
  *************************************************************************/
 static int
