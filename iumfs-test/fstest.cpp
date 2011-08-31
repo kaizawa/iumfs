@@ -83,7 +83,6 @@ using namespace std;
 #define NEW_FILE_NAME_4  "testnewfile4"
 #define NEW_FILE_PATH_4  DIR_PATH "/" NEW_FILE_NAME_4
 
-
 #define NEW_FILE_NAME_6  "testnewfile6"
 #define NEW_FILE_PATH_6  DIR_PATH "/" NEW_FILE_NAME_6
 
@@ -128,6 +127,7 @@ public:
     int doRmdir(const char *);
     int getFilesize(const char *);
     int doRemove(const char *);
+    int doMmap(const char *, size_t);
 };
 
 int
@@ -358,6 +358,59 @@ Test::getFilesize(const char *filepath)
     return(size);
 }
 
+int
+Test::doMmap(const char *path, size_t size)
+{
+    size_t i;
+    uchar_t *buf, *map;
+
+    buf = (uchar_t *)malloc(size);
+    if (buf == NULL) {
+        cout << "\t\tdoMmap: malloc(): " << strerror(errno) << endl;
+        return(errno);
+    }
+
+    // 10101010
+    memset(buf, 0xaa, size);
+ 
+    fd = open64(path, O_RDWR|O_CREAT, 0644);    
+    if (fd < 0) {
+        cout << "\t\tdoMmap: open(" << path << "): " << strerror(errno) << endl;
+        free(buf);        
+        return(errno);
+    }
+
+    if (write(fd, (void *)buf, size) < 0) {
+        cout << "\t\tdoMmape: write(" << path << "): " << strerror(errno) << endl;
+        free(buf);        
+        return(errno);
+    }
+    
+    map = (uchar_t *)mmap(0, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (map == (uchar_t *)-1) {
+        cout << "\t\tdoMmap: mmap(" << path << "): " << strerror(errno) << endl;
+        free(buf);        
+        return(errno);
+    }
+
+    if (bcmp(buf, map, size) != 0) {
+        cout << "\t\tdoMmap: bcmp failed" << endl;
+        for (i = 0; i < size; i++) {
+            if (isprint(buf[i])){
+                cout << "\t\tbuf[" << i << "]= 0x" << oct << buf[i] ;
+                cout << " \"" <<  buf[i] << "\"" << endl;
+            } else {
+                cout << "\t\tbuf[" << i << "]= 0x" << oct << buf[i] << endl;
+            }
+        }
+        free(buf);
+        return(-1);        
+    }
+    free(buf);    
+    cout << "\t\tdoMmap: success." << endl;
+    return (0);
+}
+
 class WriteTest : public Test
 {
 public:
@@ -474,7 +527,7 @@ WriteTest::runTest()
 
     }    
     cout << "\tend: Success" << endl;
-    
+
   out:
     if(dummydata){
         free(dummydata);
@@ -739,7 +792,6 @@ out:
     return ret;
 }
 
-
 class GetattrTest : public Test
 {
 public:
@@ -851,12 +903,68 @@ out:
     return ret;
 }
 
+class MmapTest : public Test
+{
+public:
+    int runTest();
+};
+    
+int
+MmapTest::runTest()
+{
+    int ret = 0;
+    
+    cout << "mmap_test: Start" << endl;
+
+    /*
+     * 1K のファイルを作ってマップ
+     */
+    cout << "\tbegin: Map 1K bytes " << endl;
+    if((ret = doMmap(NEW_FILE_PATH_6, 1024)) != 0){
+        goto out;
+    }
+    cout << "\tend: Success" << endl;        
+
+    /*
+     * 4K のファイルを作ってマップ
+     */
+    cout << "\tbegin: Map 4K bytes " << endl;
+    if((ret = doMmap(NEW_FILE_PATH_6, 1024 * 4)) != 0){
+        goto out;
+    }
+    cout << "\tend: Success" << endl;
+
+    /*
+     * 8K のファイルを作ってマップ
+     */
+    cout << "\tbegin: Map 8K bytes " << endl;
+    if((ret = doMmap(NEW_FILE_PATH_6, 1024 * 8)) != 0){
+        goto out;
+    }
+    cout << "\tend: Success" << endl;
+
+    /*
+     * 1M のファイルを作ってマップ
+     */
+    cout << "\tbegin: Map 1M bytes " << endl;
+    if((ret = doMmap(NEW_FILE_PATH_6, 1024 * 1024)) != 0){
+        goto out;
+    }
+
+  out :
+    if (ret) {
+        cout << "\tend: Failed" << endl;
+    }
+    cout << "mmap_test: end" << endl;
+    return ret;
+}
 
 void
 print_usage(char *name)
 {
     cout << "Usage: " << name << " [getattr|readdir|open|read]" << endl;
 }
+
 
 int
 main(int argc, char *argv[])
@@ -885,7 +993,9 @@ main(int argc, char *argv[])
         test = new MkdirTest();
     }else if (strcmp(argv[1], "rmdir") == 0) {
         test = new RmdirTest();
-    }else {
+    }else if (strcmp(argv[1], "mmap") == 0) {
+        test = new MmapTest();
+    }else {        
         print_usage(argv[0]);
         exit(1);        
     }

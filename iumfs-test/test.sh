@@ -185,6 +185,7 @@ do_basic_test(){
     exec_fstest "readdir"
     exec_fstest "remove"
     exec_fstest "rmdir"
+    exec_fstest "mmap"
 }
 
 do_create_and_delete(){
