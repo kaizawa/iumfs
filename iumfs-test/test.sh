@@ -40,7 +40,7 @@ base="/var/tmp/iumfsbase"
 init (){
 	LOGDIR=$PWD/logs
         TESTLOGFILE=$LOGDIR/test-`date '+%Y%m%d-%H:%M:%S'`.log
-        DAEMONLOGFILE=$LOGDIR/testfsd-`date '+%Y%m%d-%H:%M:%S'`.log
+        DAEMONLOGFILE=$LOGDIR/localfsd-`date '+%Y%m%d-%H:%M:%S'`.log
         # Create log directory 
 	if [ ! -d "${LOGDIR}" ]; then
 		mkdir ${LOGDIR}
@@ -51,7 +51,7 @@ init (){
 	# Just in case, umount ${mnt}
 	do_umount
 
- 	# kill iumfsd testfsd
+ 	# kill iumfsd localfsd
 	kill_daemon  >> $TESTLOGFILE 2>&1
 
         # Create mount point directory 
@@ -64,7 +64,7 @@ init (){
 	fi
 }
 
-init_testfs(){
+init_localfs(){
         echo "##"
         echo "## Preparing required directory for test."
         echo "##"
@@ -114,8 +114,8 @@ do_umount() {
 	return 1
 }
 
-start_testfsd() {
-	./iumfs-test/testfsd -d 3 > $DAEMONLOGFILE 2>&1 &
+start_localfsd() {
+	./iumfs-test/localfsd -d 3 > $DAEMONLOGFILE 2>&1 &
 	if [ "$?" -eq 0 ]; then
 		daemonpid=$! 
 		return 0		
@@ -124,7 +124,7 @@ start_testfsd() {
 }
 
 kill_daemon(){
-	sudo pkill -KILL testfsd >> $TESTLOGFILE 2>&1
+	sudo pkill -KILL localfsd >> $TESTLOGFILE 2>&1
 	daemonpid=""
 	return 0
 }
@@ -271,10 +271,10 @@ main() {
     echo "##"
     echo "## Start mount test."
     echo "##"
-    exec_mount_test "testfs://localhost"
-    init_testfs
-    do_mount "testfs://localhost"
-    start_testfsd
+    exec_mount_test "localfs://localhost"
+    init_localfs
+    do_mount "localfs://localhost"
+    start_localfsd
 
     do_basic_test
     do_mkfile_test

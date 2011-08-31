@@ -25,7 +25,7 @@
  */
 
 /**********************************************************
- * testfsd.c
+ * localfsd
  *
  * User mode daemon used for functional test of IUMFS filesystem
  * 

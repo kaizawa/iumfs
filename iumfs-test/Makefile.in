@@ -34,14 +34,14 @@ RM = rm
 DEFS = @DEFS@
 CFLAGS = $(DEFS) @CFLAGS@  -I ../kernel @PTHREAD_CFLAGS@
 
-PRODUCTS = testfsd fstest readtest writetest
+PRODUCTS = localfsd fstest readtest writetest
 
 INSTALL = @INSTALL@
 
 all: $(PRODUCTS)
 
-testfsd : testfsd.c ../kernel/iumfs.h
-	-$(CC) $(CFLAGS) testfsd.c -lsocket -lnsl -lpthread -o $@
+localfsd : localfsd.c ../kernel/iumfs.h
+	-$(CC) $(CFLAGS) localfsd.c -lsocket -lnsl -lpthread -o $@
 
 fstest : fstest.cpp ../kernel/iumfs.h
 	-$(CPP)  -g -O2 -Wall -DSOL11 -DSOL10  -I ../kernel -pthreads fstest.cpp -o fstest
