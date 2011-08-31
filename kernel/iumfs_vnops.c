@@ -61,6 +61,7 @@
 #include <sys/vm.h>
 #include <sys/exec.h>
 #include <sys/ksynch.h>
+#include <sys/vmsystm.h>
 
 #include "iumfs.h"
 
@@ -94,6 +95,10 @@ static int iumfs_rmdir(vnode_t *, char *, vnode_t *, struct cred *);
 static int iumfs_space(vnode_t *, int, struct flock64 *, int, offset_t,
                        struct cred *);
 static int iumfs_getattr_verify(vnode_t *, struct cred *);
+static int iumfs_addmap(vnode_t *, offset_t, struct as *, caddr_t, size_t,
+        uchar_t, uchar_t, uint_t, struct cred *);
+static int iumfs_delmap(vnode_t *, offset_t, struct as *, caddr_t, size_t,
+        uint_t, uint_t, uint_t, struct cred *);
 #else
 static int iumfs_ioctl(vnode_t *, int, intptr_t, int, struct cred *, int *);
 static int iumfs_setfl(vnode_t *, int, int, struct cred *);
@@ -186,7 +191,11 @@ fs_operation_def_t iumfs_vnode_ops_def_array[] = {
     { VOPNAME_RMDIR,
         {&iumfs_rmdir}},
     { VOPNAME_SPACE,
-        {&iumfs_space}},    
+        {&iumfs_space}},
+    { VOPNAME_ADDMAP,
+        {(fs_generic_func_p) & iumfs_addmap}},
+    { VOPNAME_DELMAP,
+        {&iumfs_delmap}},        
     { NULL,
         {NULL}},
 };
@@ -213,7 +222,9 @@ fs_operation_def_t iumfs_vnode_ops_def_array[] = {
     { VOPNAME_RENAME, &iumfs_rename},
     { VOPNAME_MKDIR, &iumfs_mkdir},
     { VOPNAME_RMDIR, &iumfs_rmdir},
-    { VOPNAME_SPACE, &iumfs_space},    
+    { VOPNAME_SPACE, &iumfs_space},
+    { VOPNAME_ADDMAP, (fs_generic_func_p) & iumfs_addmap},
+    { VOPNAME_DELMAP, &iumfs_delmap},            
     { NULL, NULL},
 };
 #endif // ifdef SOL11
@@ -1064,48 +1075,62 @@ static int
 iumfs_map(vnode_t *vp, offset_t off, struct as *as, caddr_t *addrp, size_t len,
         uchar_t prot, uchar_t maxprot, uint_t flags, struct cred *cr)
 {
+
     struct segvn_crargs vn_a;
     int err;
 
     DEBUG_PRINT((CE_CONT, "iumfs_map is called\n"));
 
-    /*
-    if (vp->v_flag & VNOMAP)
-        Return (ENOSYS);
- 
-    if (off > UINT32_MAX || off + len > UINT32_MAX)
-        return (ENXIO);
-     */
-
-    as_rangelock(as);
-    if ((flags & MAP_FIXED) == 0) {
-        map_addr(addrp, len, off, 1, flags);
-        if (*addrp == NULL) {
-            as_rangeunlock(as);
-            DEBUG_PRINT((CE_CONT, "iumfs_map: return(ENOMEM)\n"));
-            return (ENOMEM);
-        }
-    } else {
-        /*
-         * User specified address - blow away any previous mappings
-         */
-        (void) as_unmap(as, *addrp, len);
+    if (vp->v_flag & VNOMAP){
+        err = ENOSYS;
+        goto out;
     }
-
+ 
+    if (off < 0 || off + len < 0){
+        err = ENXIO;
+        goto out;
+    }
+ 
+    if (vp->v_type != VREG){
+        err = ENODEV;
+        goto out;
+    }
+ 
+    if (vp->v_flag & VNOCACHE) {
+        err = EAGAIN;
+        goto out;
+    }
+ 
+    as_rangelock(as);
+#ifdef SOL11
+    /* Solairs 10 doesn't have this kernel function */
+    err = choose_addr(as, addrp, len, off, ADDR_VACALIGN, flags);
+    if (err) {
+        as_rangeunlock(as);
+        DEBUG_PRINT((CE_CONT, "iumfs_map: choose_addr returned with err(%d)\n", err));        
+        goto out;
+    }
+#endif    
+ 
     vn_a.vp = vp;
     vn_a.offset = off;
-    vn_a.type = flags & MAP_TYPE;
-    vn_a.prot = prot;
-    vn_a.maxprot = maxprot;
-    vn_a.flags = flags & ~MAP_TYPE;
+    vn_a.type = (flags & MAP_TYPE);
+    vn_a.prot = (uchar_t)prot;
+    vn_a.maxprot = (uchar_t)maxprot;
+    vn_a.flags = (flags & ~MAP_TYPE);
     vn_a.cred = cr;
     vn_a.amp = NULL;
     vn_a.szc = 0;
     vn_a.lgrp_mem_policy_flags = 0;
-
-    err = as_map(as, *addrp, len, segvn_create, &vn_a);
+ 
+    err  = as_map(as, *addrp, len, segvn_create, &vn_a);
+    if(err)
+        DEBUG_PRINT((CE_CONT, "iumfs_map: as_map returned with err(%d)\n", err));
+    
     as_rangeunlock(as);
-    DEBUG_PRINT((CE_CONT, "iumfs_map: return(%d)\n", err));
+ 
+  out:
+    DEBUG_PRINT((CE_CONT, "iumfs_map: return(%d)\n", err));        
     return (err);
 }
 
@@ -2203,6 +2228,33 @@ iumfs_getattr_verify(vnode_t *vp, struct cred *cr)
     return (err);
 }
 
+/************************************************************************
+ * iumfs_addmap()  VNODE オペレーション
+ *
+ *************************************************************************/
+static int
+iumfs_addmap(vnode_t *vp, offset_t off, struct as *as, caddr_t addr,
+        size_t len, uchar_t prot, uchar_t maxprot, uint_t flags, struct cred *cr)
+{
+    DEBUG_PRINT((CE_CONT, "iumfs_addmap is called\n"));
+    if (vp->v_flag & VNOMAP)
+        return (ENOSYS);
+    return (0);    
+}
+
+/************************************************************************
+ * iumfs_delmap()  VNODE オペレーション
+ *
+ *************************************************************************/
+static int
+iumfs_delmap(vnode_t *vp, offset_t off, struct as *as, caddr_t addr, size_t len,
+        uint_t prot, uint_t maxprot, uint_t flags, struct cred *cr)
+{
+    DEBUG_PRINT((CE_CONT, "iumfs_delmap is called\n"));
+    if (vp->v_flag & VNOMAP)
+        return (ENOSYS);
+    return (0);        
+}
 
 #ifndef SOL10
 /*
@@ -2341,33 +2393,6 @@ iumfs_realvp(vnode_t *vp, vnode_t **vpp)
     return (ENOTSUP);
 }
 
-/************************************************************************
- * iumfs_addmap()  VNODE オペレーション
- *
- * サポートしていない
- *************************************************************************/
-static int
-iumfs_addmap(vnode_t *vp, offset_t off, struct as *as, caddr_t addr,
-        size_t len, uchar_t prot, uchar_t maxprot, uint_t flags, struct cred *cr)
-{
-    DEBUG_PRINT((CE_CONT, "iumfs_addmap is called\n"));
-
-    return (ENOTSUP);
-}
-
-/************************************************************************
- * iumfs_delmap()  VNODE オペレーション
- *
- * サポートしていない
- *************************************************************************/
-static int
-iumfs_delmap(vnode_t *vp, offset_t off, struct as *as, caddr_t addr, size_t len,
-        uint_t prot, uint_t maxprot, uint_t flags, struct cred *cr)
-{
-    DEBUG_PRINT((CE_CONT, "iumfs_delmap is called\n"));
-
-    return (ENOTSUP);
-}
 
 /************************************************************************
  * iumfs_poll()  VNODE オペレーション
