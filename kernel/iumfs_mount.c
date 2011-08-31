@@ -72,16 +72,23 @@ main(int argc, char *argv[])
 
     memset(mountopts, 0x0, sizeof (iumfs_mount_opts_t));
 
-    if (argc < 3 || argc > 5)
+    if (argc < 3 )
         print_usage(argv[0]);
 
-    while ((c = getopt(argc, argv, "o:")) != EOF) {
+    while ((c = getopt(argc, argv, "qO:o:")) != EOF) {
         switch (c) {
             case 'o':
-                // マウントオプション
+                // Mount options
                 opts = optarg;
                 break;
+            case 'O':
+                // do nothing
+                break;
+            case 'q':
+                // do nothing
+                break;
             default:
+                printf("default\n");
                 print_usage(argv[0]);
         }
     }
