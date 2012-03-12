@@ -52,6 +52,8 @@
 #include <dirent.h>
 #include <stddef.h>
 #include <pthread.h>
+#include <sys/varargs.h>
+#include <stdarg.h>
 
 #include "iumfs.h"
 
@@ -147,7 +149,7 @@ main(int argc, char *argv[])
         PRINT_ERR((LOG_INFO, "Going to background mode\n"));
         if (become_daemon() != 0) {
             print_err(LOG_ERR, "can't become daemon\n");
-            return(NULL);
+            return(0);
         }
     }    
 
