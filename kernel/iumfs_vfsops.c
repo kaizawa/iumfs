@@ -55,6 +55,7 @@
 // OpenSolaris の場合必要
 #ifdef SOL11
 #include <sys/vfs_opreg.h>
+#include <stdarg.h>
 #endif
 #include "iumfs.h"
 
