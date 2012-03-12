@@ -111,7 +111,7 @@ main(int argc, char *argv[])
     const char *path;
     int oflag;
     mode_t mode = 0;
-    const uchar_t *data;
+    const char *data;
     offset_t off;
     size_t size;
     int use_lseek= 1;
