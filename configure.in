@@ -49,6 +49,7 @@ case $KARCH in
 	;;
       'sparcv9')
 	CFLAGS="$CFLAGS -m64"
+	KCFLAGS="$KCFLAGS -m64"
 	DRV_DIR="/usr/kernel/drv/sparcv9"
 	if test -n "$IS_GNU_LD";
 	then
