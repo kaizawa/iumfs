@@ -45,7 +45,7 @@ KCFLAGS="$CFLAGS $KCFLAGS -D_KERNEL -I."
 case $KARCH in
      'sparc' | 'i386')
 	DRV_DIR="/usr/kernel/drv"
-	FS_DIR="/kernel/fs"
+	FS_DIR="/usr/kernel/fs"
 	;;
       'sparcv9')
 	CFLAGS="$CFLAGS -m64"
@@ -55,7 +55,7 @@ case $KARCH in
 	then
 		LD_OPT="-melf64_sparc"
 	fi
-	FS_DIR="/kernel/fs/sparcv9"
+	FS_DIR="/usr/kernel/fs/sparcv9"
 	;;
       'amd64')
 	CFLAGS="$CFLAGS -m64"
@@ -74,7 +74,7 @@ case $KARCH in
 	then
 		LD_OPT="-melf_x86_64"
 	fi
-	FS_DIR="/kernel/fs/amd64"
+	FS_DIR="/usr/kernel/fs/amd64"
 	;;
 esac
 
