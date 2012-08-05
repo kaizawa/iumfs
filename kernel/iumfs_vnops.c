@@ -1318,7 +1318,7 @@ iumfs_putapage(vnode_t *vp, page_t *pp, u_offset_t *offp, size_t *lenp,
          * ることはない。
          */
         pp = pvn_write_kluster(vp, pp, &io_off, &io_len, pp->p_offset,
-                PAGESIZE, flags);
+                PAGESIZE * 8, flags);
             
         DEBUG_PRINT((CE_CONT, "iumfs_putapage: pvn_write_kluster succeeded io_off=%" PRId64 ",io_len=%ld\n", io_off, io_len));
         /*
@@ -1650,7 +1650,8 @@ iumfs_write(vnode_t *vp, struct uio *uiop, int ioflag, struct cred *cr)
          * これにより segmap_release の中で iumfs_putpage が呼ばれ、putpage の
          * 処理が終わるまで戻らない。（同期書き込み）
          */
-        flags |= SM_WRITE; // write back を強制する。
+        //flags |= SM_WRITE; // write back を強制する。
+        flags = 0;
         DEBUG_PRINT((CE_CONT, "iumfs_write: calling segmap_release\n"));        
         err = segmap_release(segkmap, base, flags);
         if (err != SUCCESS) {
